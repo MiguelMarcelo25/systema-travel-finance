@@ -15,6 +15,13 @@
       "when": 1791327501178,
       "tag": "0001_giant_stingray",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791330067959,
+      "tag": "0002_red_tarantula",
+      "breakpoints": true
     }
   ]
 }

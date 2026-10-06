@@ -1,7 +1,8 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 export const users = sqliteTable('users', {
- id: text('id').primaryKey(), name: text('name').notNull(), email: text('email').notNull().unique(), role: text('role').notNull(), password: text('password').notNull(), active: integer('active').notNull().default(1), created: text('created').notNull()
-});
+ id: text('id').primaryKey(), name: text('name').notNull(), email: text('email').notNull().unique(), role: text('role').notNull(), password: text('password').notNull(), active: integer('active').notNull().default(1), created: text('created').notNull(), customer_id: text('customer_id').references(()=>customers.id)
+}, t=>[uniqueIndex('users_single_administrator').on(t.role).where(sql`${t.role} = 'Administrator'`), uniqueIndex('users_customer_unique').on(t.customer_id)]);
 export const sessions = sqliteTable('sessions', { token: text('token').primaryKey(), user_id: text('user_id').notNull().references(()=>users.id), expires: integer('expires').notNull() });
 export const customers = sqliteTable('customers', { id: text('id').primaryKey(), name: text('name').notNull(), email: text('email').notNull(), phone: text('phone').notNull(), created: text('created').notNull() }, t=>[uniqueIndex('customers_email_unique').on(t.email)]);
 export const packages = sqliteTable('packages', { id: text('id').primaryKey(), name: text('name').notNull(), destination: text('destination').notNull(), category: text('category').notNull(), price: integer('price').notNull(), active: integer('active').notNull().default(1) });
@@ -11,3 +12,6 @@ export const expenses = sqliteTable('expenses', { id: text('id').primaryKey(), d
 export const audit = sqliteTable('audit', { id: text('id').primaryKey(), user_id: text('user_id').notNull().references(()=>users.id), action: text('action').notNull(), entity_id: text('entity_id').notNull(), created: text('created').notNull() });
 export const settings = sqliteTable('settings', { key: text('key').primaryKey(), value: text('value').notNull() });
 export const authAttempts = sqliteTable('auth_attempts', { key: text('key').primaryKey(), attempts: integer('attempts').notNull(), started: integer('started').notNull() });
+export const bookingRequests = sqliteTable('booking_requests', {
+ id: text('id').primaryKey(), customer_id: text('customer_id').notNull().references(()=>customers.id), package_id: text('package_id').notNull().references(()=>packages.id), travel_date: text('travel_date').notNull(), passengers: integer('passengers').notNull(), notes: text('notes').notNull().default(''), status: text('status').notNull().default('Pending'), requested_at: text('requested_at').notNull(), reviewed_by: text('reviewed_by').references(()=>users.id), reviewed_at: text('reviewed_at'), decision_notes: text('decision_notes').notNull().default(''), booking_id: text('booking_id').references(()=>bookings.id), request_id: text('request_id').notNull().unique()
+}, t=>[index('requests_customer_idx').on(t.customer_id), index('requests_status_idx').on(t.status)]);

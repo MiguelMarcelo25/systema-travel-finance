@@ -1,6 +1,6 @@
 import { forecastRecords } from './forecast.mjs';
 const categories=['Tour package','Flight booking','Hotel reservation','Visa assistance'];
-const roles=['Administrator','Booking staff','Accounting staff','Finance manager'];
+const roles=['Administrator','Client'];
 const enc=new TextEncoder();
 const uid=(prefix)=>prefix+'-'+crypto.randomUUID().slice(0,8).toUpperCase();
 const now=()=>new Date().toISOString();
@@ -24,16 +24,16 @@ export async function handleApi(request,env){
   if(!['GET','HEAD'].includes(method)) {const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)fail('This request is not allowed.',403);if(!request.headers.get('content-type')?.includes('application/json'))fail('Send JSON data.',415);}
   const initialized=Boolean(await one('SELECT id FROM users LIMIT 1'));
   const rawCookie=(request.headers.get('cookie')||'').match(/(?:^|; )systema_session=([^;]+)/)?.[1];
-  const user=rawCookie?await one('SELECT u.id,u.name,u.email,u.role FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>? AND u.active=1',await digest(rawCookie),Date.now()):null;
+  const user=rawCookie?await one('SELECT u.id,u.name,u.email,u.role,u.customer_id FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>? AND u.active=1',await digest(rawCookie),Date.now()):null;
   if(path==='/api/session'&&method==='GET')return json({initialized,user});
   let body={};if(!['GET','HEAD'].includes(method)){const text=await request.text();if(text.length>30000)fail('Request is too large.',413);try{body=JSON.parse(text)}catch{fail('Invalid request data.')};if(!body||Array.isArray(body)||typeof body!=='object')fail('Invalid request data.');}
   const login=async(id)=>{const token=crypto.randomUUID()+crypto.randomUUID();await DB.batch([q('DELETE FROM sessions WHERE expires<?',Date.now()),q('INSERT INTO sessions(token,user_id,expires) VALUES(?,?,?)',await digest(token),id,Date.now()+43200000)]);return json({ok:true},200,{'Set-Cookie':cookie(token)})};
-  if(path==='/api/setup'&&method==='POST') {
+  if(method==='POST'&&(path==='/api/setup'||(path==='/api/login'&&!initialized))) {
    if(initialized)fail('The workspace has already been set up.',409);
    if(!env.LOCAL&&!request.headers.get('oai-authenticated-user-id'))fail('Sign in to your private site before creating the workspace.',401);
-   const id=uid('USR');const name=str(body.name,'Name');const mail=email(body.email);const hash=await passwordHash(body.password);
-   await DB.batch([q('INSERT INTO users(id,name,email,role,password,created) SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM users)',id,name,mail,'Administrator',hash,now()),q('INSERT INTO settings(key,value) VALUES(?,?)','agency',str(body.agency,'Agency name')),q('INSERT INTO settings(key,value) VALUES(?,?)','demo',body.demo?'true':'false')]);
-   if(body.demo)await seed(DB,id);
+   const id=uid('USR');const bootstrap=path==='/api/login';const name=bootstrap?'Administrator':str(body.name,'Name');const mail=email(body.email);const hash=await passwordHash(body.password);
+   await DB.batch([q('INSERT INTO users(id,name,email,role,password,created) SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM users)',id,name,mail,'Administrator',hash,now()),q('INSERT INTO settings(key,value) VALUES(?,?)','agency',bootstrap?'Systema Travel':str(body.agency,'Agency name')),q('INSERT INTO settings(key,value) VALUES(?,?)','demo',!bootstrap&&body.demo?'true':'false')]);
+   if(!bootstrap&&body.demo)await seed(DB,id);
    return login(id);
   }
   if(path==='/api/login'&&method==='POST') {
@@ -48,8 +48,23 @@ export async function handleApi(request,env){
   const allow=(...allowed)=>{if(!allowed.includes(user.role))fail('Your role does not have permission to perform this action.',403)};
   const audit=(action,id)=>q('INSERT INTO audit(id,user_id,action,entity_id,created) VALUES(?,?,?,?,?)',uid('LOG'),user.id,action,id,now());
   if(path==='/api/logout'&&method==='POST'){if(rawCookie)await q('DELETE FROM sessions WHERE token=?',await digest(rawCookie)).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)})}
+  if(path==='/api/requests'&&method==='POST') {
+   allow('Client');if(!user.customer_id)fail('Ask the administrator to link your account to your customer record.',409);
+   const requestId=str(body.request_id,'Request identifier',100),duplicate=await one('SELECT id,customer_id FROM booking_requests WHERE request_id=?',requestId);if(duplicate){if(duplicate.customer_id!==user.customer_id)fail('Request identifier is unavailable.',409);return json({id:duplicate.id})}
+   const packageId=str(body.package_id,'Travel service');if(!await one('SELECT id FROM packages WHERE id=? AND active=1',packageId))fail('Choose an available travel service.');
+   const travelDate=date(body.travel_date,'Travel date');if(travelDate<day())fail('Travel date cannot be in the past.');const passengers=Number(body.passengers);if(!Number.isInteger(passengers)||passengers<1||passengers>500)fail('Passengers must be between 1 and 500.');
+   const notes=typeof body.notes==='string'?body.notes.slice(0,2000):'',id=uid('REQ');await DB.batch([q('INSERT INTO booking_requests(id,customer_id,package_id,travel_date,passengers,notes,status,requested_at,request_id) VALUES(?,?,?,?,?,?,\'Pending\',?,?)',id,user.customer_id,packageId,travelDate,passengers,notes,now(),requestId),audit('Submitted booking request',id)]);return json({id});
+  }
+  if(path==='/api/requests/decision'&&method==='POST') {
+   allow('Administrator');const id=str(body.id,'Booking request'),decision=choice(body.decision,['Accepted','Declined'],'decision'),notes=typeof body.decision_notes==='string'?body.decision_notes.trim().slice(0,2000):'';
+   const requestRow=await one('SELECT r.*,p.name service,p.destination,p.category,p.price FROM booking_requests r JOIN packages p ON p.id=r.package_id WHERE r.id=?',id);if(!requestRow)fail('Booking request not found.',404);if(requestRow.status!=='Pending')fail('This booking request has already been reviewed.',409);
+   if(decision==='Declined') {if(!notes)fail('Add a reason so the client knows why this request was declined.');const result=await DB.batch([q('UPDATE booking_requests SET status=\'Declined\',decision_notes=?,reviewed_by=?,reviewed_at=? WHERE id=? AND status=\'Pending\'',notes,user.id,now(),id),q('INSERT INTO audit(id,user_id,action,entity_id,created) SELECT ?,?,?,?,? WHERE changes()>0',uid('LOG'),user.id,'Declined booking request',id,now())]);if(!result[0].meta.changes)fail('This booking request has already been reviewed.',409);return json({id})}
+   if(requestRow.travel_date<day())fail('The requested travel date is in the past. Ask the client to submit an updated request.');
+   const base=money(body.base,'Base fare'),tax=money(body.tax,'Taxes'),discount=money(body.discount,'Discount'),cost=money(body.supplier_cost,'Supplier cost'),total=base+tax-discount;if(total<=0)fail('The total must be greater than zero.');const bookingId=uid('BKG');
+   const result=await DB.batch([q('INSERT INTO bookings(id,customer_id,package_id,service,destination,category,date,travel_date,passengers,base,tax,discount,supplier_cost,total,status,notes,created_by) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,\'Confirmed\',?,? FROM booking_requests WHERE id=? AND status=\'Pending\'',bookingId,requestRow.customer_id,requestRow.package_id,requestRow.service,requestRow.destination,requestRow.category,day(),requestRow.travel_date,requestRow.passengers,base,tax,discount,cost,total,requestRow.notes,user.id,id),q('UPDATE booking_requests SET status=\'Accepted\',decision_notes=?,reviewed_by=?,reviewed_at=?,booking_id=? WHERE id=? AND status=\'Pending\' AND EXISTS(SELECT 1 FROM bookings WHERE id=?)',notes,user.id,now(),bookingId,id,bookingId),q('INSERT INTO audit(id,user_id,action,entity_id,created) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM bookings WHERE id=?)',uid('LOG'),user.id,'Accepted booking request',id,now(),bookingId)]);if(!result[0].meta.changes)fail('This booking request has already been reviewed.',409);return json({id,booking_id:bookingId});
+  }
   if(path==='/api/forecast'&&method==='GET') {
-   allow('Administrator','Accounting staff','Finance manager');
+   allow('Administrator');
    const params=new URL(request.url).searchParams,metric=params.get('metric')||'sales',horizon=Number(params.get('horizon')||3),category=params.get('category')||'all';
    if(!['sales','collections','bookings'].includes(metric)||!Number.isInteger(horizon)||horizon<1||horizon>6)fail('Choose a valid metric and a horizon of 1 to 6 months.');
    if(category!=='all'&&!categories.includes(category))fail('Choose a valid service category.');
@@ -58,24 +73,30 @@ export async function handleApi(request,env){
    return json(forecastRecords(rows.filter(row=>category==='all'||row.category===category),{metric,horizon,asOf:day(),demo:demo?.value==='true'}));
   }
   if(path==='/api/data'&&method==='GET') {
+   if(user.role==='Client') {
+    const [customers,packages,bookings,payments,requests,settings]=await Promise.all([
+     all('SELECT id,name,email,phone FROM customers WHERE id=?',user.customer_id),all('SELECT * FROM packages WHERE active=1 ORDER BY name'),all('SELECT b.id,b.customer_id,b.service,b.destination,b.category,b.date,b.travel_date,b.passengers,b.base,b.tax,b.discount,b.total,b.status,c.name customer_name,COALESCE((SELECT SUM(amount) FROM payments p WHERE p.booking_id=b.id),0) paid FROM bookings b JOIN customers c ON c.id=b.customer_id WHERE b.customer_id=? ORDER BY b.date DESC,b.rowid DESC',user.customer_id),all('SELECT p.id,p.booking_id,p.amount,p.date,p.method,p.reference,b.service,c.name customer_name FROM payments p JOIN bookings b ON b.id=p.booking_id JOIN customers c ON c.id=b.customer_id WHERE b.customer_id=? ORDER BY p.date DESC,p.rowid DESC',user.customer_id),all('SELECT r.id,r.travel_date,r.passengers,r.notes,r.status,r.requested_at,r.decision_notes,r.booking_id,p.name service,p.destination FROM booking_requests r JOIN packages p ON p.id=r.package_id WHERE r.customer_id=? ORDER BY r.requested_at DESC',user.customer_id),all("SELECT * FROM settings WHERE key IN ('agency','demo')")
+    ]);return json({user,customers,packages,bookings,payments,requests,settings:Object.fromEntries(settings.map(s=>[s.key,s.value])),expenses:[],users:[],audits:[],categories,roles:[]});
+   }
+   allow('Administrator');
    const [customers,packages,bookings,payments,expenses,settings,users,audits]=await Promise.all([
-    all('SELECT * FROM customers ORDER BY name'),all('SELECT * FROM packages ORDER BY name'),all('SELECT b.*,c.name customer_name,c.email customer_email,COALESCE((SELECT SUM(amount) FROM payments p WHERE p.booking_id=b.id),0) paid FROM bookings b JOIN customers c ON b.customer_id=c.id ORDER BY b.date DESC,b.rowid DESC'),all('SELECT p.*,b.service,c.name customer_name FROM payments p JOIN bookings b ON p.booking_id=b.id JOIN customers c ON b.customer_id=c.id ORDER BY p.date DESC,p.rowid DESC'),user.role==='Booking staff'?[]:all('SELECT * FROM expenses ORDER BY date DESC,rowid DESC'),all('SELECT * FROM settings'),user.role==='Administrator'?all('SELECT id,name,email,role,active,created FROM users ORDER BY name'):[],user.role==='Administrator'?all('SELECT a.*,u.name user_name FROM audit a JOIN users u ON a.user_id=u.id ORDER BY a.rowid DESC LIMIT 30'):[]
-   ]);return json({user,customers,packages,bookings,payments,expenses,settings:Object.fromEntries(settings.map(s=>[s.key,s.value])),users,audits,categories,roles});
+    all('SELECT * FROM customers ORDER BY name'),all('SELECT * FROM packages ORDER BY name'),all('SELECT b.*,c.name customer_name,c.email customer_email,COALESCE((SELECT SUM(amount) FROM payments p WHERE p.booking_id=b.id),0) paid FROM bookings b JOIN customers c ON b.customer_id=c.id ORDER BY b.date DESC,b.rowid DESC'),all('SELECT p.*,b.service,c.name customer_name FROM payments p JOIN bookings b ON p.booking_id=b.id JOIN customers c ON b.customer_id=c.id ORDER BY p.date DESC,p.rowid DESC'),all('SELECT * FROM expenses ORDER BY date DESC,rowid DESC'),all('SELECT * FROM settings'),user.role==='Administrator'?all('SELECT id,name,email,role,active,created,customer_id FROM users ORDER BY name'):[],user.role==='Administrator'?all('SELECT a.*,u.name user_name FROM audit a JOIN users u ON a.user_id=u.id ORDER BY a.rowid DESC LIMIT 30'):[]
+   ]);const requests=await all('SELECT r.*,c.name customer_name,p.name service,p.destination,p.price FROM booking_requests r JOIN customers c ON c.id=r.customer_id JOIN packages p ON p.id=r.package_id ORDER BY r.requested_at DESC');return json({user,customers,packages,bookings,payments,expenses,requests,settings:Object.fromEntries(settings.map(s=>[s.key,s.value])),users,audits,categories,roles});
   }
   if(path==='/api/customers'&&method==='POST'){
-   allow('Administrator','Booking staff');const id=body.id||uid('CUS');const name=str(body.name,'Customer name'),mail=email(body.email),phone=str(body.phone,'Phone number',40);
+   allow('Administrator');const id=body.id||uid('CUS');const name=str(body.name,'Customer name'),mail=email(body.email),phone=str(body.phone,'Phone number',40);
    if(body.id){if(!await one('SELECT id FROM customers WHERE id=?',id))fail('Customer not found.',404);await DB.batch([q('UPDATE customers SET name=?,email=?,phone=? WHERE id=?',name,mail,phone,id),audit('Updated customer',id)])}
    else await DB.batch([q('INSERT INTO customers(id,name,email,phone,created) VALUES(?,?,?,?,?)',id,name,mail,phone,now()),audit('Added customer',id)]);
    return json({id});
   }
   if(path==='/api/packages'&&method==='POST'){
-   allow('Administrator','Booking staff');const id=body.id||uid('PKG'),name=str(body.name,'Service name'),destination=str(body.destination,'Destination'),category=choice(body.category,categories,'service category'),price=money(body.price,'Base price');
+   allow('Administrator');const id=body.id||uid('PKG'),name=str(body.name,'Service name'),destination=str(body.destination,'Destination'),category=choice(body.category,categories,'service category'),price=money(body.price,'Base price');
    if(body.id){if(!await one('SELECT id FROM packages WHERE id=?',id))fail('Service not found.',404);await DB.batch([q('UPDATE packages SET name=?,destination=?,category=?,price=?,active=? WHERE id=?',name,destination,category,price,body.active===false?0:1,id),audit('Updated service',id)])}
    else await DB.batch([q('INSERT INTO packages(id,name,destination,category,price,active) VALUES(?,?,?,?,?,1)',id,name,destination,category,price),audit('Added service',id)]);
    return json({id});
   }
   if(path==='/api/bookings'&&method==='POST'){
-   allow('Administrator','Booking staff');const id=body.id||uid('BKG');const customer=str(body.customer_id,'Customer');if(!await one('SELECT id FROM customers WHERE id=?',customer))fail('Select an existing customer.');
+   allow('Administrator');const id=body.id||uid('BKG');const customer=str(body.customer_id,'Customer');if(!await one('SELECT id FROM customers WHERE id=?',customer))fail('Select an existing customer.');
    const packageId=body.package_id||null;if(packageId&&!await one('SELECT id FROM packages WHERE id=?',packageId))fail('Service not found.');
    const service=str(body.service,'Service'),destination=str(body.destination,'Destination'),category=choice(body.category,categories,'service category'),bookingDate=date(body.date,'Booking date'),travelDate=date(body.travel_date,'Travel date');
    if(bookingDate>day())fail('Booking date cannot be in the future.');if(travelDate<bookingDate)fail('Travel date cannot be before the booking date.');
@@ -88,7 +109,7 @@ export async function handleApi(request,env){
    return json({id});
   }
   if(path==='/api/payments'&&method==='POST'){
-   allow('Administrator','Booking staff','Accounting staff');const requestId=str(body.request_id,'Request identifier',100);const duplicate=await one('SELECT id FROM payments WHERE request_id=?',requestId);if(duplicate)return json({id:duplicate.id});
+   allow('Administrator');const requestId=str(body.request_id,'Request identifier',100);const duplicate=await one('SELECT id FROM payments WHERE request_id=?',requestId);if(duplicate)return json({id:duplicate.id});
    const id=uid('RCT'),booking=str(body.booking_id,'Booking'),amount=money(body.amount,'Payment'),paymentDate=date(body.date,'Payment date'),paymentMethod=choice(body.method,['Cash','Bank transfer','GCash','Card (record only)'],'payment method'),reference=typeof body.reference==='string'?body.reference.trim().slice(0,180):'';
    if(amount<=0)fail('Payment must be greater than zero.');if(paymentDate>day())fail('Payment date cannot be in the future.');
    const b=await one('SELECT * FROM bookings WHERE id=?',booking);if(!b)fail('Booking not found.',404);if(paymentDate<b.date)fail('Payment date cannot be before booking date.');
@@ -96,14 +117,19 @@ export async function handleApi(request,env){
    if(!result[0].meta.changes)fail('Payment exceeds the current balance or the booking is cancelled.',409);return json({id});
   }
   if(path==='/api/expenses'&&method==='POST'){
-   allow('Administrator','Accounting staff');const requestId=str(body.request_id,'Request identifier',100);const duplicate=await one('SELECT id FROM expenses WHERE request_id=?',requestId);if(duplicate)return json({id:duplicate.id});const id=uid('EXP'),description=str(body.description,'Description'),category=choice(body.category,['Supplier payment','Rent','Utilities','Marketing','Salaries','Transport','Other'],'expense category'),amount=money(body.amount,'Expense'),expenseDate=date(body.date,'Expense date'),payee=str(body.payee,'Payee'),bookingId=body.booking_id||null;
+   allow('Administrator');const requestId=str(body.request_id,'Request identifier',100);const duplicate=await one('SELECT id FROM expenses WHERE request_id=?',requestId);if(duplicate)return json({id:duplicate.id});const id=uid('EXP'),description=str(body.description,'Description'),category=choice(body.category,['Supplier payment','Rent','Utilities','Marketing','Salaries','Transport','Other'],'expense category'),amount=money(body.amount,'Expense'),expenseDate=date(body.date,'Expense date'),payee=str(body.payee,'Payee'),bookingId=body.booking_id||null;
    if(amount<=0)fail('Expense must be greater than zero.');if(expenseDate>day())fail('Expense date cannot be in the future.');if(bookingId&&!await one('SELECT id FROM bookings WHERE id=?',bookingId))fail('Booking not found.');if(category==='Supplier payment'&&!bookingId)fail('Link supplier payments to a booking.');
    await DB.batch([q('INSERT INTO expenses(id,description,category,amount,date,payee,booking_id,created_by,request_id) VALUES(?,?,?,?,?,?,?,?,?)',id,description,category,amount,expenseDate,payee,bookingId,user.id,requestId),audit('Recorded expense',id)]);return json({id});
   }
   if(path==='/api/users'&&method==='POST'){
    allow('Administrator');const id=body.id||uid('USR');const name=str(body.name,'Name'),mail=email(body.email),role=choice(body.role,roles,'role');const active=body.active===false?0:1;
-   if(body.id){const existing=await one('SELECT * FROM users WHERE id=?',id);if(!existing)fail('User not found.',404);if(id===user.id&&(role!=='Administrator'||!active))fail('You cannot remove your own administrator access.');const hash=body.password?await passwordHash(body.password):existing.password;await DB.batch([q('UPDATE users SET name=?,email=?,role=?,active=?,password=? WHERE id=?',name,mail,role,active,hash,id),q('DELETE FROM sessions WHERE user_id=?',id),audit('Updated staff account',id)]);}
-   else {const hash=await passwordHash(body.password);await DB.batch([q('INSERT INTO users(id,name,email,role,password,active,created) VALUES(?,?,?,?,?,?,?)',id,name,mail,role,hash,active,now()),audit('Created staff account',id)]);}
+   const existing=body.id?await one('SELECT * FROM users WHERE id=?',id):null;if(body.id&&!existing)fail('User not found.',404);
+   if(role==='Administrator'&&existing?.role!=='Administrator')fail('Only one administrator account is allowed.',409);
+   if(existing?.role==='Administrator'&&(role!=='Administrator'||!active))fail('The sole administrator must remain active.',409);
+   const customerId=role==='Client'?(body.customer_id||existing?.customer_id):null;
+   if(role==='Client'&&(!customerId||!await one('SELECT id FROM customers WHERE id=?',customerId)))fail('Link this client account to an existing customer.');
+   if(existing){const hash=body.password?await passwordHash(body.password):existing.password;await DB.batch([q('UPDATE users SET name=?,email=?,role=?,active=?,password=?,customer_id=? WHERE id=?',name,mail,role,active,hash,customerId,id),q('DELETE FROM sessions WHERE user_id=?',id),audit('Updated account',id)]);}
+   else {const hash=await passwordHash(body.password);await DB.batch([q('INSERT INTO users(id,name,email,role,password,active,created,customer_id) VALUES(?,?,?,?,?,?,?,?)',id,name,mail,'Client',hash,active,now(),customerId),audit('Created client account',id)]);}
    return json({id});
   }
   fail('Endpoint not found.',404);

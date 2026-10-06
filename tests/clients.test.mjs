@@ -1,0 +1,55 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { handleApi } from '../src/api.mjs';
+import { openDatabase } from '../src/database.mjs';
+import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
+const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+function caller(DB) { return async (path, data, cookie = '') => { const res = await handleApi(new Request('http://localhost/api/' + path, { method: data ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', cookie }, body: data ? JSON.stringify(data) : undefined }), { DB, LOCAL: true }); return { status: res.status, data: await res.json(), cookie: res.headers.get('set-cookie')?.split(';')[0] }; }; }
+test('existing-account migration retains one administrator and all booking records', t => {
+  const sqlite = new DatabaseSync(':memory:'); t.after(() => sqlite.close()); sqlite.exec('PRAGMA foreign_keys=ON');
+  for (const name of ['0000_mature_crusher_hogan.sql', '0001_giant_stingray.sql']) sqlite.exec(readFileSync('drizzle/' + name, 'utf8'));
+  sqlite.exec("INSERT INTO users(id,name,email,role,password,active,created) VALUES('A','First','a@example.com','Administrator','hash',1,'2026-01-01'),('B','Second','b@example.com','Administrator','hash',1,'2026-02-01'),('C','Staff','c@example.com','Booking staff','hash',1,'2026-03-01'); INSERT INTO customers(id,name,email,phone,created) VALUES('CUS','Client','c@example.com','1','now'); INSERT INTO bookings(id,customer_id,service,destination,category,date,travel_date,passengers,base,tax,discount,supplier_cost,total,status,notes,created_by) VALUES('BOOK','CUS','Trip','Palawan','Tour package','2026-01-01','2026-02-01',1,10000,0,0,5000,10000,'Confirmed','','A'); INSERT INTO sessions(token,user_id,expires) VALUES('test','A',9999999999999)");
+  sqlite.exec(readFileSync('drizzle/0002_red_tarantula.sql', 'utf8'));
+  assert.equal(sqlite.prepare("SELECT id FROM users WHERE role='Administrator'").get().id, 'A');
+  assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM users WHERE role='Client'").get().count, 2);
+  assert.equal(sqlite.prepare("SELECT customer_id FROM users WHERE id='C'").get().customer_id, 'CUS');
+  assert.equal(sqlite.prepare("SELECT total FROM bookings WHERE id='BOOK'").get().total, 10000);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) count FROM sessions').get().count, 0);
+});
+test('two-field first sign-in creates one administrator; later sign-ins cannot register another', async t => {
+  const DB = openDatabase(':memory:'); t.after(() => DB.close()); const call = caller(DB);
+  const first = await call('login', { email: 'admin@example.com', password: 'Testing-only-1234' }); assert.equal(first.status, 200);
+  assert.equal((await call('data', null, first.cookie)).data.user.role, 'Administrator');
+  assert.equal((await call('login', { email: 'other@example.com', password: 'Testing-only-1234' })).status, 401);
+  assert.equal((await call('users', { name: 'Second admin', email: 'second@example.com', role: 'Administrator', password: 'Testing-only-1234' }, first.cookie)).status, 409);
+  await assert.rejects(DB.prepare("INSERT INTO users(id,name,email,role,password,active,created) VALUES('bad','Bad','bad@example.com','Administrator','test',1,'now')").run(), /UNIQUE/);
+  assert.equal((await DB.prepare("SELECT COUNT(*) count FROM users WHERE role='Administrator'").first()).count, 1);
+});
+test('clients see only their own records, cannot mutate agency data, and requests need administrator decisions', async t => {
+  const DB = openDatabase(':memory:'); t.after(() => DB.close()); const call = caller(DB);
+  const admin = await call('setup', { name: 'Admin', email: 'admin@example.com', password: 'Testing-only-1234', agency: 'Test', demo: true });
+  const accountA = await call('users', { name: 'Client A', email: 'clienta@example.com', role: 'Client', customer_id: 'CUS-DEMO01', password: 'Testing-only-1234' }, admin.cookie);
+  assert.equal(accountA.status, 200);
+  await call('users', { name: 'Client B', email: 'clientb@example.com', role: 'Client', customer_id: 'CUS-DEMO02', password: 'Testing-only-1234' }, admin.cookie);
+  const a = await call('login', { email: 'clienta@example.com', password: 'Testing-only-1234' }), b = await call('login', { email: 'clientb@example.com', password: 'Testing-only-1234' });
+  const own = (await call('data', null, a.cookie)).data;
+  assert.equal(own.customers.length, 1); assert.ok(own.bookings.every(row => row.customer_id === 'CUS-DEMO01')); assert.ok(own.bookings.every(row => !('supplier_cost' in row)));
+  assert.equal(own.expenses.length, 0); assert.equal(own.users.length, 0); assert.equal(own.audits.length, 0);
+  for (const path of ['bookings', 'payments', 'expenses', 'packages', 'customers', 'users', 'requests/decision']) assert.equal((await call(path, {}, a.cookie)).status, 403, path);
+  assert.equal((await call('forecast', null, a.cookie)).status, 403);
+  assert.equal((await call('requests', { package_id: 'PKG-DEMO01', travel_date: '2020-01-01', passengers: 1, request_id: 'bad' }, a.cookie)).status, 400);
+  const payload = { package_id: 'PKG-DEMO01', travel_date: date, passengers: 2, notes: 'Please confirm', customer_id: 'CUS-DEMO02', request_id: 'request-A' };
+  const requested = await call('requests', payload, a.cookie); assert.equal(requested.status, 200); assert.equal((await call('requests', payload, a.cookie)).data.id, requested.data.id);
+  assert.equal((await call('data', null, a.cookie)).data.requests.length, 1); assert.equal((await call('data', null, b.cookie)).data.requests.length, 0);
+  assert.equal((await call('data', null, a.cookie)).data.bookings.length, own.bookings.length);
+  const accepted = await call('requests/decision', { id: requested.data.id, decision: 'Accepted', base: '20000', tax: '10.25', discount: '5', supplier_cost: '12000', decision_notes: 'Confirmed for your travel date.' }, admin.cookie); assert.equal(accepted.status, 200);
+  const state = (await call('data', null, a.cookie)).data; assert.equal(state.requests[0].status, 'Accepted'); assert.equal(state.requests[0].booking_id, accepted.data.booking_id);
+  const booking = state.bookings.find(row => row.id === accepted.data.booking_id); assert.equal(booking.customer_id, 'CUS-DEMO01'); assert.equal(booking.total, 2000525); assert.equal(booking.status, 'Confirmed'); assert.equal(booking.paid, 0);
+  assert.equal((await call('requests/decision', { id: requested.data.id, decision: 'Declined', decision_notes: 'Duplicate' }, admin.cookie)).status, 409);
+  const second = await call('requests', { ...payload, request_id: 'request-B' }, a.cookie);
+  assert.equal((await call('requests/decision', { id: second.data.id, decision: 'Declined' }, admin.cookie)).status, 400);
+  assert.equal((await call('requests/decision', { id: second.data.id, decision: 'Declined', decision_notes: 'No availability on this date.' }, admin.cookie)).status, 200);
+  const final = (await call('data', null, a.cookie)).data; assert.equal(final.bookings.length, state.bookings.length); assert.equal(final.requests.find(row => row.id === second.data.id).status, 'Declined');
+  assert.equal((await call('users', { id: accountA.data.id, name: 'Client A', email: 'clienta@example.com', role: 'Administrator' }, admin.cookie)).status, 409);
+});

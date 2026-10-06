@@ -24,7 +24,7 @@ test('declining and count forecasts keep finite, nonnegative integer ranges', ()
     for (const row of result.forecast) { assert.ok(Number.isSafeInteger(row.value)); assert.ok(row.low >= 0); assert.ok(row.low <= row.value); assert.ok(row.high >= row.value); }
   }
 });
-test('forecast API uses persisted records and rejects anonymous, booking-role and invalid queries', async () => {
+test('forecast API uses persisted records and rejects anonymous, client-role and invalid queries', async () => {
   const DB = openDatabase(':memory:');
   const call = (path, data, cookie = '') => handleApi(new Request('http://localhost/api/' + path, { method: data ? 'POST' : 'GET', headers: { 'content-type': 'application/json', cookie }, body: data ? JSON.stringify(data) : undefined }), { DB, LOCAL: true });
   assert.equal((await call('forecast')).status, 401);
@@ -35,7 +35,7 @@ test('forecast API uses persisted records and rejects anonymous, booking-role an
   assert.equal((await call('forecast?metric=profit', null, cookie)).status, 400);
   assert.equal((await call('forecast?horizon=7', null, cookie)).status, 400);
   assert.equal((await call('forecast?category=unknown', null, cookie)).status, 400);
-  await call('users', { name: 'Booking tester', email: 'booking@example.com', password: 'testing-only-1234', role: 'Booking staff' }, cookie);
+  await call('users', { name: 'Client tester', email: 'booking@example.com', password: 'testing-only-1234', role: 'Client', customer_id: 'CUS-DEMO01' }, cookie);
   const login = await call('login', { email: 'booking@example.com', password: 'testing-only-1234' });
   assert.equal((await call('forecast', null, login.headers.get('set-cookie').split(';')[0])).status, 403);
   DB.close();
