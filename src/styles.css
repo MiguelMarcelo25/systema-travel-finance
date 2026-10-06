@@ -1,0 +1,29 @@
+@import "tailwindcss";
+@theme {
+  --color-navy: #142b3d;
+  --color-ink: #20384b;
+  --color-brand: #b85319;
+  --color-brand-light: #fff1e7;
+  --color-paper: #f4f6f8;
+  --font-sans: 'Segoe UI', system-ui, sans-serif;
+}
+@layer base {
+  body { @apply m-0 bg-paper text-ink antialiased; }
+  button, a, input, select, textarea { @apply focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand; }
+  button, a { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled), select { cursor: pointer; }
+  input, select, textarea { @apply min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-ink; }
+  input[type=checkbox] { @apply h-5 min-h-0 w-5 accent-brand; }
+  input:disabled, select:disabled { @apply bg-slate-100 text-slate-500; }
+  dialog { @apply fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl overflow-auto rounded-2xl border-0 bg-white p-0 text-ink shadow-2xl; }
+  dialog::backdrop { background: rgb(10 25 38 / .65); }
+  summary { cursor: pointer; }
+  aside nav { scrollbar-width: thin; scrollbar-color: #496173 transparent; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+@media print { .no-print, aside, header, button, dialog { display: none !important; } main { margin: 0 !important; padding: 0 !important; } body { background: white; } .print-card { border: none; box-shadow: none; } }
+@media print {
+  body:has(dialog[open]) #root * { visibility: hidden; }
+  body:has(dialog[open]) dialog[open], body:has(dialog[open]) dialog[open] * { visibility: visible; }
+  dialog[open] { display: block !important; position: absolute; inset: 0 auto auto 0; width: 100%; max-width: none; max-height: none; margin: 0; overflow: visible; box-shadow: none; }
+}

@@ -1,3 +1,4 @@
+import { forecastRecords } from './forecast.mjs';
 const categories=['Tour package','Flight booking','Hotel reservation','Visa assistance'];
 const roles=['Administrator','Booking staff','Accounting staff','Finance manager'];
 const enc=new TextEncoder();
@@ -47,6 +48,15 @@ export async function handleApi(request,env){
   const allow=(...allowed)=>{if(!allowed.includes(user.role))fail('Your role does not have permission to perform this action.',403)};
   const audit=(action,id)=>q('INSERT INTO audit(id,user_id,action,entity_id,created) VALUES(?,?,?,?,?)',uid('LOG'),user.id,action,id,now());
   if(path==='/api/logout'&&method==='POST'){if(rawCookie)await q('DELETE FROM sessions WHERE token=?',await digest(rawCookie)).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)})}
+  if(path==='/api/forecast'&&method==='GET') {
+   allow('Administrator','Accounting staff','Finance manager');
+   const params=new URL(request.url).searchParams,metric=params.get('metric')||'sales',horizon=Number(params.get('horizon')||3),category=params.get('category')||'all';
+   if(!['sales','collections','bookings'].includes(metric)||!Number.isInteger(horizon)||horizon<1||horizon>6)fail('Choose a valid metric and a horizon of 1 to 6 months.');
+   if(category!=='all'&&!categories.includes(category))fail('Choose a valid service category.');
+   const rows=metric==='collections'?await all('SELECT p.date,p.amount,b.category,b.status FROM payments p JOIN bookings b ON b.id=p.booking_id'):await all('SELECT date,total,category,status FROM bookings');
+   const demo=await one('SELECT value FROM settings WHERE key=?','demo');
+   return json(forecastRecords(rows.filter(row=>category==='all'||row.category===category),{metric,horizon,asOf:day(),demo:demo?.value==='true'}));
+  }
   if(path==='/api/data'&&method==='GET') {
    const [customers,packages,bookings,payments,expenses,settings,users,audits]=await Promise.all([
     all('SELECT * FROM customers ORDER BY name'),all('SELECT * FROM packages ORDER BY name'),all('SELECT b.*,c.name customer_name,c.email customer_email,COALESCE((SELECT SUM(amount) FROM payments p WHERE p.booking_id=b.id),0) paid FROM bookings b JOIN customers c ON b.customer_id=c.id ORDER BY b.date DESC,b.rowid DESC'),all('SELECT p.*,b.service,c.name customer_name FROM payments p JOIN bookings b ON p.booking_id=b.id JOIN customers c ON b.customer_id=c.id ORDER BY p.date DESC,p.rowid DESC'),user.role==='Booking staff'?[]:all('SELECT * FROM expenses ORDER BY date DESC,rowid DESC'),all('SELECT * FROM settings'),user.role==='Administrator'?all('SELECT id,name,email,role,active,created FROM users ORDER BY name'):[],user.role==='Administrator'?all('SELECT a.*,u.name user_name FROM audit a JOIN users u ON a.user_id=u.id ORDER BY a.rowid DESC LIMIT 30'):[]
