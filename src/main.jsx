@@ -6,6 +6,7 @@ import Auth from './Auth';
 import { api } from './utils';
 const ClientPortal = lazy(() => import('./ClientPortal.jsx'));
 import './styles.css';
+import './workspace.css';
 const Workspace = lazy(() => import('./Workspace'));
 function App() {
   const [session, setSession] = useState(null), [error, setError] = useState('');

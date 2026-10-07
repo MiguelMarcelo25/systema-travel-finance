@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Logo } from './components';
 
 export default function Sidebar({ items, mobile, onClose, label = 'Workspace' }) {
+  const sections = label === 'Client workspace' ? [{ name: 'My workspace', keys: items.map(item => item.key) }] : [{ name: 'Workspace', keys: ['overview'] }, { name: 'Operations', keys: ['bookings', 'requests', 'customers', 'packages'] }, { name: 'Finance', keys: ['payments', 'expenses', 'financial'] }, { name: 'Insights', keys: ['analytics', 'forecast', 'reports'] }, { name: 'Administration', keys: ['team'] }];
   const root = useRef(null);
   const [pinned, setPinned] = useState(false), [hovered, setHovered] = useState(false), [suppressHover, setSuppressHover] = useState(false), [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 1023px)').matches);
   function toggle() { setPinned(!pinned); setSuppressHover(pinned); setHovered(false); }
@@ -26,8 +27,10 @@ export default function Sidebar({ items, mobile, onClose, label = 'Workspace' })
   return <>{mobile && <button aria-label="Close navigation overlay" className="fixed inset-0 z-30 bg-navy/60 lg:hidden" onClick={onClose}/>}
     <aside ref={root} id="workspace-navigation" inert={narrow && !mobile} aria-label={label + ' navigation'} onMouseEnter={hover} onMouseOver={hover} onMouseLeave={() => { setHovered(false); setSuppressHover(false); }} className={`sidebar no-print ${mobile ? 'is-mobile-open' : ''} ${pinned ? 'is-pinned' : ''} ${hovered ? 'is-hovered' : ''} ${suppressHover ? 'is-collapsed' : ''}`}>
       <div className="sidebar-heading"><Link to="/app" aria-label="Systema overview" className="sidebar-brand"><Logo light/></Link><button type="button" aria-label={pinned ? 'Close sidebar' : 'Open sidebar'} aria-expanded={pinned} onClick={toggle} className="sidebar-toggle">{pinned ? <ChevronLeft size={19}/> : <ChevronRight size={19}/>}</button><button type="button" aria-label="Close navigation" onClick={onClose} className="sidebar-mobile-close"><X size={20}/></button></div>
-      <div className="sidebar-caption">{label}</div>
-      <nav aria-label={label} className="sidebar-nav">{items.map(({ key, name, icon: Icon, to }) => <NavLink key={key} to={to} end aria-label={name} title={name} onClick={onClose} className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}><Icon size={20} strokeWidth={1.7} aria-hidden="true"/><span className="sidebar-text">{name}</span></NavLink>)}</nav>
+      <nav aria-label={label} className="sidebar-nav">{sections.map(section => {
+        const links = section.keys.map(key => items.find(item => item.key === key)).filter(Boolean);
+        return links.length ? <div className="sidebar-section" key={section.name}><p className="sidebar-section-title">{section.name}</p>{links.map(({ key, name, icon: Icon, to, count }) => <NavLink key={key} to={to} end aria-label={name} title={name} onClick={onClose} className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}><Icon size={20} strokeWidth={1.7} aria-hidden="true"/><span className="sidebar-text">{name}</span>{count > 0 && <span className="sidebar-count" aria-hidden="true">{count}</span>}</NavLink>)}</div> : null;
+      })}</nav>
     </aside>
   </>;
 }

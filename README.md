@@ -93,3 +93,5 @@ Custom form controls use shared tokens in `src/styles.css`: `--control-radius`, 
 Administrator and client accounts use the avatar menu at the top right. Sign out opens a confirmation dialog; Cancel, the close button, or Escape keeps the session active. Confirming ends the server session and returns to login.
 
 Login and registration share a responsive coastal design with custom generated artwork, subtle entrance animations, and system light/dark and reduced-motion support. See [login design notes and image provenance](docs/login-design.md).
+
+Administrator and client workspaces use a light blue design with grouped navigation, an actionable overview, consistent tables/forms, and responsive charts. See [workspace design and verification notes](docs/workspace-design.md).
