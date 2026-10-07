@@ -105,8 +105,8 @@ html::-webkit-scrollbar, dialog::-webkit-scrollbar, .overflow-x-auto::-webkit-sc
 .sidebar-account strong { display: block; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
 .sidebar-account small { display: block; margin-top: 3px; color: #a9bdcb; font-size: 11px; }
 @media (min-width: 1024px) {
-  .workspace-shell { margin-left: var(--sidebar-rail); }
-  .sidebar.is-pinned + .workspace-shell { margin-left: var(--sidebar-width); }
+  .workspace-shell { margin-left: var(--sidebar-rail); transition: margin-left 180ms ease; }
+  .sidebar:is(.is-hovered, :has(:focus-visible), .is-pinned):not(.is-collapsed) + .workspace-shell { margin-left: var(--sidebar-width); }
   .sidebar { transform: none; width: var(--sidebar-rail); }
   .sidebar:is(.is-hovered, :has(:focus-visible), .is-pinned):not(.is-collapsed) { width: var(--sidebar-width); }
   .sidebar-mobile-close { display: none; }
