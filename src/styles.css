@@ -106,6 +106,7 @@ html::-webkit-scrollbar, dialog::-webkit-scrollbar, .overflow-x-auto::-webkit-sc
 .sidebar-account small { display: block; margin-top: 3px; color: #a9bdcb; font-size: 11px; }
 @media (min-width: 1024px) {
   .workspace-shell { margin-left: var(--sidebar-rail); }
+  .sidebar.is-pinned + .workspace-shell { margin-left: var(--sidebar-width); }
   .sidebar { transform: none; width: var(--sidebar-rail); }
   .sidebar:hover, .sidebar:has(:focus-visible), .sidebar.is-pinned { width: var(--sidebar-width); }
   .sidebar-mobile-close { display: none; }
@@ -127,6 +128,7 @@ html::-webkit-scrollbar, dialog::-webkit-scrollbar, .overflow-x-auto::-webkit-sc
 
 .modal-body { max-height: calc(90dvh - 77px); overflow-y: auto; scrollbar-width: none; }
 .modal-body::-webkit-scrollbar { display: none; }
+@media print { .workspace-shell { margin-left: 0 !important; } .modal-body { max-height: none; overflow: visible; } }
 
 @media (max-width: 639px) {
   [data-radix-popper-content-wrapper]:has(> .calendar-menu) { position: fixed !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; }
