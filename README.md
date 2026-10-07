@@ -91,3 +91,5 @@ Migration 0002 retains the earliest existing administrator, converts all other a
 Custom form controls use shared tokens in `src/styles.css`: `--control-radius`, `--control-border`, `--control-surface`, and `--control-focus`. Dropdowns support keyboard selection and type-ahead; calendars support typed ISO dates and custom month/year selection. Both work inside record dialogs. The sidebar expands on hover or keyboard focus, can be pinned open, and becomes a button-operated drawer on mobile. Scrollbars are hidden while wheel, touch, and keyboard scrolling remain available.
 
 Administrator and client accounts use the avatar menu at the top right. Sign out opens a confirmation dialog; Cancel, the close button, or Escape keeps the session active. Confirming ends the server session and returns to login.
+
+Login and registration share a responsive coastal design with custom generated artwork, subtle entrance animations, and system light/dark and reduced-motion support. See [login design notes and image provenance](docs/login-design.md).
