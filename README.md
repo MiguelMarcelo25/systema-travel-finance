@@ -4,7 +4,7 @@ A working travel-agency booking and financial-monitoring website based on *Syste
 
 ## Run locally
 
-Requires Node.js 24 or later. From this directory run:
+Requires Node.js 24. From this directory run:
 
 ```powershell
 npm install
