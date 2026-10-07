@@ -8,9 +8,13 @@
     "start": "node server.mjs",
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "build:vercel": "vite build",
+    "start:cloud": "node --env-file=.env.local server.mjs",
+    "dev:cloud": "node --env-file=.env.local server.mjs --dev"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.2",
     "drizzle-kit": "^0.31.4",
@@ -24,6 +28,7 @@
   },
   "dependencies": {
     "lucide-react": "^1.52.0",
+    "pg": "8.23.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4"

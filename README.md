@@ -16,6 +16,27 @@ Open http://localhost:4173. The first screen is a login form containing only Ema
 
 Data persists in `data/systema.sqlite`. Stop the server before copying the `data` directory for a complete local backup. The database and session credentials are excluded from Git and hosted build archives. Local and hosted databases are separate.
 
+## Supabase and Vercel
+
+The production deployment uses React and Tailwind assets built by Vite, a Node.js Vercel Function in `api/index.mjs`, and Supabase Postgres in Singapore. It preserves Systema's server-side password authentication and HttpOnly sessions. Supabase Auth is not used; application accounts are stored in the private `systema.users` table.
+
+The private `systema` schema has RLS on every application table. Anonymous and Supabase authenticated roles have no schema access. The API uses a dedicated `systema_app` database login with access only to these tables. Client ownership and administrator permissions are enforced by the API. Supabase's transaction pooler is used with one connection per function instance, unnamed parameterized queries, certificate and hostname verification, and short transactions. An advisory transaction lock prevents concurrent payments or approvals from bypassing balance and status guards.
+
+Production environment variables are `DATABASE_URL` and `SYSTEMA_ADMIN_EMAIL`. The database URL is a server secret and must never use a `VITE_` prefix. The public Supabase root certificate is checked in under `supabase/certs`; `DATABASE_CA` can override it when needed. Production credentials are not supplied to preview deployments.
+
+The production administrator is provisioned before deployment. Public visitors cannot register or claim the administrator account. The generated initial password is saved locally in the ignored `.sites-runtime/administrator-credentials.txt` file. Sign in, then change it through **Accounts > Edit administrator**. All additional accounts are Clients, created by the administrator and linked to customer records.
+
+To use the same Supabase data on localhost, run:
+
+```powershell
+npm run build:vercel
+npm run start:cloud
+```
+
+This loads the ignored `.env.local` configuration. `npm start` continues to use the separate local SQLite database. `npm run dev:cloud` provides hot reload with the cloud database.
+
+For a fresh Supabase installation, install the official Supabase CLI, create and link the project, run `supabase db push`, then run `node scripts/provision.mjs PROJECT_REF ADMIN_EMAIL` once. On other machines set `SUPABASE_CLI` to your CLI executable. Configure the production secrets in Vercel, connect the GitHub repository, and deploy its `main` branch. Future schema changes must be created with `supabase migration new` and applied before a deployment that needs them. Database migrations never run inside HTTP requests or frontend builds.
+
 ## Included workflows
 
 - Customer records and booking history; travel-service catalog with active/inactive services.
@@ -61,7 +82,7 @@ The build emits `dist/server/index.js`, an ESM Cloudflare Worker with the websit
 
 Tests cover centavo precision, partial/full payments, overpayment rejection, paid booking protection, idempotent retries, required supplier linkage, client isolation, single-administrator constraints, request acceptance/decline, same-origin checks, login limits, and sample data integrity. Test-only passwords in tests are used exclusively for isolated temporary databases.
 
-The site starts private. Hosted setup requires the signed-in Site owner. Staff access on the hosted site also requires access under the platform's sharing policy; application accounts do not override that outer access policy.
+The original Sites deployment starts private and requires the signed-in Site owner for setup. The Vercel deployment uses the pre-provisioned administrator instead and opens directly to the login page.
 
 ## Account migration
 

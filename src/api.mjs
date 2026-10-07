@@ -30,6 +30,7 @@ export async function handleApi(request,env){
   const login=async(id)=>{const token=crypto.randomUUID()+crypto.randomUUID();await DB.batch([q('DELETE FROM sessions WHERE expires<?',Date.now()),q('INSERT INTO sessions(token,user_id,expires) VALUES(?,?,?)',await digest(token),id,Date.now()+43200000)]);return json({ok:true},200,{'Set-Cookie':cookie(token)})};
   if(method==='POST'&&(path==='/api/setup'||(path==='/api/login'&&!initialized))) {
    if(initialized)fail('The workspace has already been set up.',409);
+   if(env.ADMIN_EMAIL)fail('The administrator account is being configured. Please try again later.',503);
    if(!env.LOCAL&&!request.headers.get('oai-authenticated-user-id'))fail('Sign in to your private site before creating the workspace.',401);
    const id=uid('USR');const bootstrap=path==='/api/login';const name=bootstrap?'Administrator':str(body.name,'Name');const mail=email(body.email);const hash=await passwordHash(body.password);
    await DB.batch([q('INSERT INTO users(id,name,email,role,password,created) SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM users)',id,name,mail,'Administrator',hash,now()),q('INSERT INTO settings(key,value) VALUES(?,?)','agency',bootstrap?'Systema Travel':str(body.agency,'Agency name')),q('INSERT INTO settings(key,value) VALUES(?,?)','demo',!bootstrap&&body.demo?'true':'false')]);
@@ -39,7 +40,7 @@ export async function handleApi(request,env){
   if(path==='/api/login'&&method==='POST') {
    const mail=email(body.email);const key=await digest(mail);const time=Date.now(),windowStart=time-900000;
    const attempts=await one('SELECT * FROM auth_attempts WHERE key=?',key);if(attempts&&attempts.started>windowStart&&attempts.attempts>=5)fail('Too many sign-in attempts. Try again in 15 minutes.',429);
-   await q('INSERT INTO auth_attempts(key,attempts,started) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN started<? THEN 1 ELSE attempts+1 END,started=CASE WHEN started<? THEN ? ELSE started END',key,time,windowStart,windowStart,time).run();
+   await q('INSERT INTO auth_attempts(key,attempts,started) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN auth_attempts.started<? THEN 1 ELSE auth_attempts.attempts+1 END,started=CASE WHEN auth_attempts.started<? THEN ? ELSE auth_attempts.started END',key,time,windowStart,windowStart,time).run();
    const account=await one('SELECT * FROM users WHERE email=? AND active=1',mail);
    if(!account||!await matches(body.password,account.password))fail('Email or password is incorrect.',401);
    await q('DELETE FROM auth_attempts WHERE key=?',key).run();return login(account.id);
@@ -133,7 +134,7 @@ export async function handleApi(request,env){
    return json({id});
   }
   fail('Endpoint not found.',404);
- }catch(error){if(error.status)return json({error:error.message},error.status);if(/UNIQUE constraint|SQLITE_CONSTRAINT_UNIQUE/i.test(error.message))return json({error:'This email or transaction already exists.'},409);console.error('Systema request failed:',error.message);return json({error:'Unable to save or load records. Your input has been kept. Please try again.'},503)}
+ }catch(error){if(error.status)return json({error:error.message},error.status);if(error.code==='23505'||/UNIQUE constraint|SQLITE_CONSTRAINT_UNIQUE/i.test(error.message))return json({error:'This email or transaction already exists.'},409);console.error('Systema request failed:',error.message);return json({error:'Unable to save or load records. Your input has been kept. Please try again.'},503)}
 }
 async function seed(DB,userId){
  const q=(s,...a)=>DB.prepare(s).bind(...a);const statements=[];
