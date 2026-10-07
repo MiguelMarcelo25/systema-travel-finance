@@ -16,6 +16,7 @@ export default {
       request = new Request(url, { method: request.method, headers: request.headers,
         ...(!['GET', 'HEAD'].includes(request.method) ? { body: request.body, duplex: 'half' } : {}) });
     }
-    return handleApi(request, { DB: database, ADMIN_EMAIL: process.env.SYSTEMA_ADMIN_EMAIL });
+    return handleApi(request, { DB: database, ADMIN_EMAIL: process.env.SYSTEMA_ADMIN_EMAIL,
+      CLIENT_IP: request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown' });
   }
 };

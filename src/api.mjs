@@ -28,6 +28,24 @@ export async function handleApi(request,env){
   if(path==='/api/session'&&method==='GET')return json({initialized,user});
   let body={};if(!['GET','HEAD'].includes(method)){const text=await request.text();if(text.length>30000)fail('Request is too large.',413);try{body=JSON.parse(text)}catch{fail('Invalid request data.')};if(!body||Array.isArray(body)||typeof body!=='object')fail('Invalid request data.');}
   const login=async(id)=>{const token=crypto.randomUUID()+crypto.randomUUID();await DB.batch([q('DELETE FROM sessions WHERE expires<?',Date.now()),q('INSERT INTO sessions(token,user_id,expires) VALUES(?,?,?)',await digest(token),id,Date.now()+43200000)]);return json({ok:true},200,{'Set-Cookie':cookie(token)})};
+  if(path==='/api/register'&&method==='POST') {
+   if(!initialized)fail('The administrator must set up the workspace before clients can register.',503);
+   if(user)fail('Sign out before creating a new client account.',409);
+   const name=str(body.name,'Full name'),mail=email(body.email),phone=str(body.phone,'Phone number',40);
+   if(typeof body.password!=='string'||body.password!==body.confirm_password)fail('Passwords must match.');
+   const key=await digest('registration:'+ (env.CLIENT_IP||'unknown')),time=Date.now(),windowStart=time-900000;
+   await q('INSERT INTO auth_attempts(key,attempts,started) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN auth_attempts.started<? THEN 1 ELSE auth_attempts.attempts+1 END,started=CASE WHEN auth_attempts.started<? THEN ? ELSE auth_attempts.started END',key,time,windowStart,windowStart,time).run();
+   if((await one('SELECT attempts FROM auth_attempts WHERE key=?',key)).attempts>10)fail('Too many registration attempts. Try again in 15 minutes.',429);
+   // Never attach a public registration to an existing customer or its history.
+   if(await one('SELECT id FROM users WHERE email=?',mail)||await one('SELECT id FROM customers WHERE email=?',mail))fail('An account cannot be created with this email. Sign in or contact the administrator.',409);
+   const id=uid('USR'),customerId=uid('CUS'),hash=await passwordHash(body.password),created=now();
+   await DB.batch([
+    q('INSERT INTO customers(id,name,email,phone,created) VALUES(?,?,?,?,?)',customerId,name,mail,phone,created),
+    q('INSERT INTO users(id,name,email,role,password,active,created,customer_id) VALUES(?,?,?,\'Client\',?,1,?,?)',id,name,mail,hash,created,customerId),
+    q('INSERT INTO audit(id,user_id,action,entity_id,created) VALUES(?,?,?,?,?)',uid('LOG'),id,'Registered client account',id,created)
+   ]);
+   return login(id);
+  }
   if(method==='POST'&&(path==='/api/setup'||(path==='/api/login'&&!initialized))) {
    if(initialized)fail('The workspace has already been set up.',409);
    if(env.ADMIN_EMAIL)fail('The administrator account is being configured. Please try again later.',503);
@@ -134,7 +152,7 @@ export async function handleApi(request,env){
    return json({id});
   }
   fail('Endpoint not found.',404);
- }catch(error){if(error.status)return json({error:error.message},error.status);if(error.code==='23505'||/UNIQUE constraint|SQLITE_CONSTRAINT_UNIQUE/i.test(error.message))return json({error:'This email or transaction already exists.'},409);console.error('Systema request failed:',error.message);return json({error:'Unable to save or load records. Your input has been kept. Please try again.'},503)}
+ }catch(error){if(error.status)return json({error:error.message},error.status);if(error.code==='23505'||/UNIQUE constraint|SQLITE_CONSTRAINT_UNIQUE/i.test(error.message))return json({error:path==='/api/register'?'An account cannot be created with this email. Sign in or contact the administrator.':'This email or transaction already exists.'},409);console.error('Systema request failed:',error.message);return json({error:'Unable to save or load records. Your input has been kept. Please try again.'},503)}
 }
 async function seed(DB,userId){
  const q=(s,...a)=>DB.prepare(s).bind(...a);const statements=[];

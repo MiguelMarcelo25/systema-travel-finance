@@ -69,10 +69,18 @@ test('Postgres supports private clients, approvals, exact payments and transacti
     DB.prepare("INSERT INTO settings(key,value) VALUES('agency','duplicate')")
   ]), error => error.code === '23505');
   assert.equal(await DB.prepare("SELECT * FROM settings WHERE key='rollback-test'").first(), null);
+  const registration = { name: 'Registered traveler', email: 'registered@example.com', phone: '1', password: 'Registered-test-1234', confirm_password: 'Registered-test-1234', role: 'Administrator', customer_id: customer.data.id };
+  const registered = await call('register', registration);
+  assert.equal(registered.status, 200);
+  const own = (await call('data', null, registered.cookie)).data;
+  assert.equal(own.user.role, 'Client'); assert.notEqual(own.user.customer_id, customer.data.id);
+  assert.equal(own.bookings.length, 0); assert.equal(own.payments.length, 0);
+  assert.equal((await call('register', registration)).status, 409);
+  assert.equal((await call('register', { ...registration, email: 'client@example.com' })).status, 409);
   await assert.rejects(DB.prepare("INSERT INTO users(id,name,email,role,password,created) VALUES('second','Second','second@example.com','Administrator','hash','now')").run(), error => error.code === '23505');
   await pg.exec('SET ROLE anon;');
   await assert.rejects(pg.query('SELECT * FROM systema.users'), error => error.code === '42501');
   await pg.exec('RESET ROLE; SET ROLE systema_app;');
-  assert.equal((await pg.query('SELECT COUNT(*)::int count FROM systema.users')).rows[0].count, 2);
+  assert.equal((await pg.query('SELECT COUNT(*)::int count FROM systema.users')).rows[0].count, 3);
   await pg.exec('RESET ROLE;');
 });

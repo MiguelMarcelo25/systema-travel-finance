@@ -12,7 +12,7 @@ npm run build
 npm start
 ```
 
-Open http://localhost:4173. The first screen is a login form containing only Email and Password. On a fresh installation, the first successful sign-in creates the sole administrator (minimum password length: 10 characters). No default administrator credentials are shipped. Later sign-ins authenticate existing accounts. The administrator creates client accounts in **Accounts**, linking each account to a customer record. Sample fixtures are used only by isolated tests; client-facing login has no sample-data or registration options.
+Open http://localhost:4173. The first screen is a login form containing Email and Password, with a **Create an account** link after initialization. On a fresh local installation, the first successful sign-in creates the sole administrator (minimum password length: 10 characters). No default administrator credentials are shipped. Later sign-ins authenticate existing accounts. Clients can register at `/register` with their name, email, phone and password confirmation. Registration creates a new Client account and its own customer record, then signs the client in. Existing customer emails cannot be claimed through public registration; those clients should contact the administrator. The administrator can also create linked Client accounts in **Accounts**. Sample fixtures are used only by isolated tests.
 
 Data persists in `data/systema.sqlite`. Stop the server before copying the `data` directory for a complete local backup. The database and session credentials are excluded from Git and hosted build archives. Local and hosted databases are separate.
 
@@ -24,7 +24,7 @@ The private `systema` schema has RLS on every application table. Anonymous and S
 
 Production environment variables are `DATABASE_URL` and `SYSTEMA_ADMIN_EMAIL`. The database URL is a server secret and must never use a `VITE_` prefix. The public Supabase root certificate is checked in under `supabase/certs`; `DATABASE_CA` can override it when needed. Production credentials are not supplied to preview deployments.
 
-The production administrator is provisioned before deployment. Public visitors cannot register or claim the administrator account. The generated initial password is saved locally in the ignored `.sites-runtime/administrator-credentials.txt` file. Sign in, then change it through **Accounts > Edit administrator**. All additional accounts are Clients, created by the administrator and linked to customer records.
+The production administrator is provisioned before deployment. Public registration always creates Client accounts and never assigns administrator privileges or links to existing customer history. It is unavailable until initialization, and has a persistent limit of 10 attempts per client IP in 15 minutes. Vercel supplies the trusted forwarded IP; the local server uses the socket address. The administrator credentials are saved locally in the ignored `.sites-runtime/administrator-credentials.txt` file. All booking requests still require administrator acceptance or decline.
 
 To use the same Supabase data on localhost, run:
 
