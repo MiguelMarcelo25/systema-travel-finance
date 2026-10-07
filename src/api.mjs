@@ -1,4 +1,5 @@
 import { forecastRecords } from './forecast.mjs';
+import { handleDocuments } from './documents-api.mjs';
 const categories=['Tour package','Flight booking','Hotel reservation','Visa assistance'];
 const roles=['Administrator','Client'];
 const enc=new TextEncoder();
@@ -21,12 +22,13 @@ export async function handleApi(request,env){
  const cookie=(token,age=43200)=>'systema_session='+token+'; Path=/; HttpOnly; SameSite=Strict; Max-Age='+age+(env.LOCAL?'':'; Secure');
  try {
   if(!DB)fail('Database is unavailable. Please try again later.',503);
-  if(!['GET','HEAD'].includes(method)) {const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)fail('This request is not allowed.',403);if(!request.headers.get('content-type')?.includes('application/json'))fail('Send JSON data.',415);}
+  const fileUpload=path==='/api/documents/upload'&&method==='POST';
+  if(!['GET','HEAD'].includes(method)) {const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)fail('This request is not allowed.',403);if(!request.headers.get('content-type')?.includes(fileUpload?'multipart/form-data':'application/json'))fail(fileUpload?'Send a document file.':'Send JSON data.',415);}
   const initialized=Boolean(await one('SELECT id FROM users LIMIT 1'));
   const rawCookie=(request.headers.get('cookie')||'').match(/(?:^|; )systema_session=([^;]+)/)?.[1];
   const user=rawCookie?await one('SELECT u.id,u.name,u.email,u.role,u.customer_id FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>? AND u.active=1',await digest(rawCookie),Date.now()):null;
   if(path==='/api/session'&&method==='GET')return json({initialized,user});
-  let body={};if(!['GET','HEAD'].includes(method)){const text=await request.text();if(text.length>30000)fail('Request is too large.',413);try{body=JSON.parse(text)}catch{fail('Invalid request data.')};if(!body||Array.isArray(body)||typeof body!=='object')fail('Invalid request data.');}
+  let body={};if(!['GET','HEAD'].includes(method)&&!fileUpload){const text=await request.text();if(text.length>30000)fail('Request is too large.',413);try{body=JSON.parse(text)}catch{fail('Invalid request data.')};if(!body||Array.isArray(body)||typeof body!=='object')fail('Invalid request data.');}
   const login=async(id)=>{const token=crypto.randomUUID()+crypto.randomUUID();await DB.batch([q('DELETE FROM sessions WHERE expires<?',Date.now()),q('INSERT INTO sessions(token,user_id,expires) VALUES(?,?,?)',await digest(token),id,Date.now()+43200000)]);return json({ok:true},200,{'Set-Cookie':cookie(token)})};
   if(path==='/api/register'&&method==='POST') {
    if(!initialized)fail('The administrator must set up the workspace before clients can register.',503);
@@ -64,6 +66,7 @@ export async function handleApi(request,env){
    await q('DELETE FROM auth_attempts WHERE key=?',key).run();return login(account.id);
   }
   if(!user)fail('Please sign in to continue.',401);
+  if(path==='/api/documents'||path.startsWith('/api/documents/'))return await handleDocuments(request,env,user,body);
   const allow=(...allowed)=>{if(!allowed.includes(user.role))fail('Your role does not have permission to perform this action.',403)};
   const audit=(action,id)=>q('INSERT INTO audit(id,user_id,action,entity_id,created) VALUES(?,?,?,?,?)',uid('LOG'),user.id,action,id,now());
   if(path==='/api/logout'&&method==='POST'){if(rawCookie)await q('DELETE FROM sessions WHERE token=?',await digest(rawCookie)).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)})}

@@ -1,0 +1,14 @@
+import { createClient } from '@supabase/supabase-js';
+import { DOCUMENT_BUCKET } from '../src/document-storage.mjs';
+import { DOCUMENT_TYPES, MAX_DOCUMENT_BYTES } from '../src/requirements.mjs';
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('Server-only Supabase storage configuration is required.');
+const storage = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } }).storage;
+const existing = await storage.getBucket(DOCUMENT_BUCKET);
+if (existing.error && !/not found/i.test(existing.error.message)) throw new Error('Unable to inspect document storage.');
+if (existing.data?.public) throw new Error('The document bucket must be private. Review its configuration before continuing.');
+const settings = { public: false, fileSizeLimit: MAX_DOCUMENT_BYTES, allowedMimeTypes: DOCUMENT_TYPES };
+const result = existing.data ? await storage.updateBucket(DOCUMENT_BUCKET, settings) : await storage.createBucket(DOCUMENT_BUCKET, settings);
+if (result.error) throw new Error('Unable to configure private document storage.');
+const verified = await storage.getBucket(DOCUMENT_BUCKET);
+if (verified.error || verified.data.public || Number(verified.data.file_size_limit) !== MAX_DOCUMENT_BYTES) throw new Error('Document bucket verification failed.');
+console.log('Private document bucket verified; PDF/JPG/PNG files limited to 4 MB.');

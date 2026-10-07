@@ -17,6 +17,7 @@ test('Postgres supports private clients, approvals, exact payments and transacti
   t.after(() => pg.close());
   await pg.exec('CREATE ROLE anon; CREATE ROLE authenticated;');
   await pg.exec(readFileSync('supabase/migrations/20261006235813_systema_postgres.sql', 'utf8'));
+  await pg.exec(readFileSync('supabase/migrations/20261007050049_visa_documents.sql', 'utf8'));
   const query = async (input, args) => {
     const result = await pg.query(typeof input === 'string' ? input : input.text, args || input.values);
     for (const row of result.rows) for (const field of result.fields) {
@@ -43,6 +44,19 @@ test('Postgres supports private clients, approvals, exact payments and transacti
   assert.equal(account.status, 200);
   const client = await call('login', { email: 'client@example.com', password: 'Postgres-test-1234' });
   assert.equal(client.status, 200);
+  const objects = new Map();
+  const STORAGE = { async upload(path, bytes) { objects.set(path, new Blob([bytes])); }, async download(path) { return objects.get(path); }, async remove(path) { objects.delete(path); } };
+  const form = new FormData();
+  form.set('file', new File(['%PDF-1.4 fictional database test'], 'test.pdf', { type: 'application/pdf' }));
+  form.set('requirement_id', 'visa-form'); form.set('request_id', crypto.randomUUID());
+  const uploaded = await handleApi(new Request('https://systema.example/api/documents/upload', { method: 'POST', headers: { cookie: client.cookie }, body: form }), { DB, STORAGE, LOCAL: true });
+  assert.equal(uploaded.status, 200);
+  const document = await uploaded.json();
+  assert.equal((await call('documents', null, client.cookie)).data.documents[0].id, document.id);
+  assert.equal((await call('documents/review', { id: document.id, status: 'Needs changes', notes: 'Please upload a clearer copy.' }, admin.cookie)).status, 200);
+  assert.equal((await call('documents', null, client.cookie)).data.documents[0].notes, 'Please upload a clearer copy.');
+  const download = await handleApi(new Request('https://systema.example/api/documents/file?id=' + document.id, { headers: { cookie: client.cookie } }), { DB, STORAGE, LOCAL: true });
+  assert.equal(download.status, 200); assert.equal(await download.text(), '%PDF-1.4 fictional database test');
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   const request = await call('requests', { package_id: service.data.id, travel_date: today, passengers: 1, request_id: 'req-1' }, client.cookie);
   assert.equal(request.status, 200);
@@ -80,7 +94,9 @@ test('Postgres supports private clients, approvals, exact payments and transacti
   await assert.rejects(DB.prepare("INSERT INTO users(id,name,email,role,password,created) VALUES('second','Second','second@example.com','Administrator','hash','now')").run(), error => error.code === '23505');
   await pg.exec('SET ROLE anon;');
   await assert.rejects(pg.query('SELECT * FROM systema.users'), error => error.code === '42501');
+  await assert.rejects(pg.query('SELECT * FROM systema.client_documents'), error => error.code === '42501');
   await pg.exec('RESET ROLE; SET ROLE systema_app;');
   assert.equal((await pg.query('SELECT COUNT(*)::int count FROM systema.users')).rows[0].count, 3);
+  assert.equal((await pg.query('SELECT COUNT(*)::int count FROM systema.client_documents')).rows[0].count, 1);
   await pg.exec('RESET ROLE;');
 });

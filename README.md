@@ -50,6 +50,15 @@ For a fresh Supabase installation, install the official Supabase CLI, create and
 - One Administrator account and Client accounts, enforced by the API and a database uniqueness constraint. Clients see only their linked customer records, bookings, balances, requests, and receipts. All financial reports and predictive analytics remain administrator-only.
 - Clients submit booking requests. The administrator accepts or declines them, with a reason required for declining. Accepting atomically creates one confirmed, unpaid booking with the administrator-approved fare. Requests alone do not count as bookings or sales.
 - Hashed passwords, expiring server sessions, login attempt limits, same-origin write checks, and an audit trail.
+- Client visa requirements: the 12-item agency checklist, private PDF/JPG/PNG uploads, downloads, and administrator review with correction messages. Original and conditional requirements are identified separately.
+
+## Client requirement uploads
+
+Clients open **My documents** and choose **Upload document** beside an applicable requirement. Each upload accepts one PDF, JPG, or PNG up to 4 MiB; a requirement can hold up to 10 files. The administrator opens **Client documents**, selects a customer, downloads their files, and marks each copy **Reviewed** or **Needs changes** with feedback. Digital review does not represent receipt of physical originals or a visa decision.
+
+For cloud storage, configure server-only `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, apply the checked-in Supabase migration, then run `node --env-file=.env.local scripts/setup-document-storage.mjs`. This creates/verifies the private `systema-client-documents` bucket with the matching format and size limits. Configure the two server variables as production secrets in Vercel before deployment. Never prefix them with `VITE_` or commit their values. Custom server authentication checks file ownership on every listing/download; the browser never receives the service key or object paths. Document metadata remains in the private `systema` schema with RLS enabled.
+
+Local SQLite installations store files in ignored `data/documents` (override with `SYSTEMA_DOCUMENTS_DIR`). Back up both the SQLite database and that directory. Cloud installations require the private Storage bucket instead of a temporary deployment filesystem. Failed metadata writes attempt to remove only the newly uploaded object; storage operators should reconcile unreferenced objects if cleanup fails.
 
 ## Financial rules
 

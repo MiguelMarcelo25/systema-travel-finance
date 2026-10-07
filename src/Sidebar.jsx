@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Logo } from './components';
 
 export default function Sidebar({ items, mobile, onClose, label = 'Workspace' }) {
-  const sections = label === 'Client workspace' ? [{ name: 'My workspace', keys: items.map(item => item.key) }] : [{ name: 'Workspace', keys: ['overview'] }, { name: 'Operations', keys: ['bookings', 'requests', 'customers', 'packages'] }, { name: 'Finance', keys: ['payments', 'expenses', 'financial'] }, { name: 'Insights', keys: ['analytics', 'forecast', 'reports'] }, { name: 'Administration', keys: ['team'] }];
+  const sections = label === 'Client workspace' ? [{ name: 'My workspace', keys: items.map(item => item.key) }] : [{ name: 'Workspace', keys: ['overview'] }, { name: 'Operations', keys: ['bookings', 'requests', 'customers', 'packages', 'documents'] }, { name: 'Finance', keys: ['payments', 'expenses', 'financial'] }, { name: 'Insights', keys: ['analytics', 'forecast', 'reports'] }, { name: 'Administration', keys: ['team'] }];
   const root = useRef(null);
   const [pinned, setPinned] = useState(false), [hovered, setHovered] = useState(false), [suppressHover, setSuppressHover] = useState(false), [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 1023px)').matches);
   function toggle() { setPinned(!pinned); setSuppressHover(pinned); setHovered(false); }
