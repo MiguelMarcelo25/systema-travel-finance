@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, LogOut, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Logo } from './components';
 
-export default function Sidebar({ items, user, onLogout, mobile, onClose, label = 'Workspace' }) {
+export default function Sidebar({ items, mobile, onClose, label = 'Workspace' }) {
   const root = useRef(null);
   const [pinned, setPinned] = useState(false), [hovered, setHovered] = useState(false), [suppressHover, setSuppressHover] = useState(false), [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 1023px)').matches);
   function toggle() { setPinned(!pinned); setSuppressHover(pinned); setHovered(false); }
@@ -28,10 +28,6 @@ export default function Sidebar({ items, user, onLogout, mobile, onClose, label 
       <div className="sidebar-heading"><Link to="/app" aria-label="Systema overview" className="sidebar-brand"><Logo light/></Link><button type="button" aria-label={pinned ? 'Close sidebar' : 'Open sidebar'} aria-expanded={pinned} onClick={toggle} className="sidebar-toggle">{pinned ? <ChevronLeft size={19}/> : <ChevronRight size={19}/>}</button><button type="button" aria-label="Close navigation" onClick={onClose} className="sidebar-mobile-close"><X size={20}/></button></div>
       <div className="sidebar-caption">{label}</div>
       <nav aria-label={label} className="sidebar-nav">{items.map(({ key, name, icon: Icon, to }) => <NavLink key={key} to={to} end aria-label={name} title={name} onClick={onClose} className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}><Icon size={20} strokeWidth={1.7} aria-hidden="true"/><span className="sidebar-text">{name}</span></NavLink>)}</nav>
-      <div className="sidebar-bottom">
-        <div className="sidebar-account"><span className="sidebar-avatar" aria-hidden="true">{user.name.slice(0, 1).toUpperCase()}</span><span className="sidebar-text"><strong>{user.name}</strong><small>{user.role}</small></span></div>
-        <button type="button" aria-label="Sign out" title="Sign out" onClick={onLogout} className="sidebar-link sidebar-logout"><LogOut size={19}/><span className="sidebar-text">Sign out</span></button>
-      </div>
     </aside>
   </>;
 }

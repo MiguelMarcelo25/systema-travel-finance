@@ -1,9 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, BriefcaseBusiness, Users, Package, Wallet, Receipt, ChartNoAxesCombined, TrendingUp, FileText, ShieldCheck, Menu, Plus, Search, ArrowUpRight, Download, Printer, CircleHelp, Banknote, CalendarDays } from 'lucide-react';
 import { Badge, Button, Card, DataTable, Empty, Field, LineChart, Loading, Stat, Title } from './components';
 import { RecordDetails, RecordForm } from './forms';
 import Sidebar from './Sidebar';
+import AccountMenu from './AccountMenu';
 import { SelectControl } from './controls';
 import { api, compact, downloadCsv, money, monthName, payStatus, pretty, sum, today } from './utils';
 const Forecast = lazy(() => import('./Forecast.jsx'));
@@ -15,7 +16,7 @@ function monthly(bookings, payments, expenses) { const date = new Date(today() +
 function Breakdown({ title, rows }) { const maximum = Math.max(1, ...rows.map(row => row.total)); return <Card><h2 className="mb-5 text-lg font-semibold">{title}</h2>{!rows.length ? <Empty/> : <div className="space-y-5">{rows.map(row => <div key={row.name}><div className="mb-2 flex justify-between gap-3 text-sm"><span>{row.name}</span><strong className="tabular-nums">{money(row.total)}</strong></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-navy" style={{ width: row.total / maximum * 100 + '%' }}/></div><p className="mt-1 text-xs text-slate-600">{row.count} booking{row.count !== 1 ? 's' : ''}</p></div>)}</div>}</Card>; }
 const group = (rows, key) => Object.entries(rows.reduce((result, row) => { const value = result[row[key]] ||= { total: 0, count: 0 }; value.total += row.total; value.count++; return result; }, {})).map(([name, values]) => ({ name, ...values })).sort((a, b) => b.total - a.total);
 export default function Workspace({ session, refreshSession }) {
-  const location = useLocation(), navigate = useNavigate(), view = location.pathname.split('/')[2] || 'overview';
+  const location = useLocation(), view = location.pathname.split('/')[2] || 'overview';
   const [data, setData] = useState(null), [error, setError] = useState(''), [toast, setToast] = useState(''), [modal, setModal] = useState(null), [mobile, setMobile] = useState(false);
   const [query, setQuery] = useState(''), [status, setStatus] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState(today()), [page, setPage] = useState(1), [report, setReport] = useState('income');
   const user = session.user, finance = user.role === 'Administrator', canBook = user.role === 'Administrator', canPay = user.role === 'Administrator', canExpense = user.role === 'Administrator';
@@ -29,7 +30,6 @@ export default function Workspace({ session, refreshSession }) {
   const closeNavigation = useCallback(() => setMobile(false), []);
   const edit = (type, record) => setModal({ type, record });
   async function saved(type, id) { await load(); close(); setToast('Record saved successfully.'); }
-  async function logout() { try { await api('logout', {}); await refreshSession(); navigate('/login'); } catch (failure) { setToast(failure.message); } }
   // Optional browser-native tools expose only the same role-checked UI workflows.
   useEffect(() => {
     const context = navigator.modelContext || document.modelContext;
@@ -64,9 +64,9 @@ export default function Workspace({ session, refreshSession }) {
   else if (report === 'sales' || report === 'receivables') { reportHeaders = ['Booking', 'Customer', 'Service', 'Booked date', 'Status', 'Total (PHP)', 'Paid (PHP)', 'Balance (PHP)']; reportRows = (report === 'receivables' ? bookings.filter(row => row.total > row.paid) : bookings).map(row => [row.id, row.customer_name, row.service, row.date, row.status, (row.total / 100).toFixed(2), (row.paid / 100).toFixed(2), ((row.total - row.paid) / 100).toFixed(2)]); }
   else { reportHeaders = ['ID', 'Date', 'Description', 'Category / method', 'Amount (PHP)']; reportRows = (report === 'payments' ? payments : expenses).map(row => [row.id, row.date, row.description || row.service, row.category || row.method, (row.amount / 100).toFixed(2)]); }
   return <div className="min-h-dvh"><a href="#workspace-content" className="fixed left-4 top-2 z-50 -translate-y-20 rounded-lg bg-brand p-3 text-white focus:translate-y-0">Skip to content</a>
-  <Sidebar items={allowed.map(key => ({ key, name: views[key][0], icon: views[key][1], to: key === 'overview' ? '/app' : '/app/' + key }))} user={user} onLogout={logout} mobile={mobile} onClose={closeNavigation} label="Agency workspace"/>
+  <Sidebar items={allowed.map(key => ({ key, name: views[key][0], icon: views[key][1], to: key === 'overview' ? '/app' : '/app/' + key }))} mobile={mobile} onClose={closeNavigation} label="Agency workspace"/>
 
-  <div className="workspace-shell" inert={mobile}><header className="no-print flex min-h-20 items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 sm:px-8"><div className="flex min-w-0 items-center gap-3"><button aria-label="Open navigation" aria-expanded={mobile} aria-controls="workspace-navigation" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 lg:hidden" onClick={() => setMobile(true)}><Menu size={20}/></button><div><p className="truncate text-sm font-semibold">{data?.settings.agency || 'Systema workspace'}</p><p className="mt-1 text-xs text-slate-500">Travel operations & finance</p></div></div><span className="hidden text-xs text-slate-600 sm:block">Administrator workspace</span></header>
+  <div className="workspace-shell" inert={mobile}><header className="no-print flex min-h-20 items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 sm:px-8"><div className="flex min-w-0 items-center gap-3"><button aria-label="Open navigation" aria-expanded={mobile} aria-controls="workspace-navigation" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 lg:hidden" onClick={() => setMobile(true)}><Menu size={20}/></button><div className="min-w-0"><p className="truncate text-sm font-semibold">{data?.settings.agency || 'Systema workspace'}</p><p className="mt-1 text-xs text-slate-500">Travel operations & finance</p></div></div><AccountMenu user={user} refreshSession={refreshSession}/></header>
   <main id="workspace-content" className="mx-auto max-w-[1500px] p-5 sm:p-8 lg:p-9"><Title eyebrow={view === 'overview' ? 'Your daily briefing' : undefined} title={view === 'overview' ? `Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, ${user.name.split(' ')[0]}.` : views[view][0]} description={views[view][2]} action={creation && <Button onClick={() => edit(view === 'team' ? 'users' : view)}><Plus size={18}/>{actionLabel}</Button>}/>
   {data?.settings.demo === 'true' && view !== 'forecast' && <div className="no-print mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">Illustrative workspace · fictional sample records are included. Reports and predictions reflect all saved records.</div>}
   {error && <Card className="mb-5"><p role="alert" className="text-sm text-rose-800">{error}</p><Button secondary className="mt-3" onClick={load}>Reload records</Button></Card>}
