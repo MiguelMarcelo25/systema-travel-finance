@@ -16,7 +16,27 @@ Open http://localhost:4173. The first screen is a login form containing Email an
 
 Data persists in `data/systema.sqlite`. Stop the server before copying the `data` directory for a complete local backup. The database and session credentials are excluded from Git and hosted build archives. Local and hosted databases are separate.
 
-## Supabase and Vercel
+## Account verification and password recovery
+
+Both administrator and client accounts must verify their email before entering the workspace. Existing accounts are marked unverified when migration 0004 is applied; their records are preserved. First-time registration sends a verification link when email delivery is configured. The verification screen also supports sending another link and checking verification status. Accounts created by an administrator verify after their first sign-in. Changing an account email clears its verification and invalidates its sessions and outstanding links.
+
+**Forgot password?** is available on the shared sign-in screen. Reset links expire after 30 minutes; verification links expire after 24 hours. Both are single-use, stored only as hashes, and sent to the account email. Password resets sign out all existing sessions. The API restricts requests by IP and account email and returns the same recovery response for known and unknown accounts.
+
+For local SQLite development, emails are saved as private `.txt` previews under `.sites-runtime/mail/`. Open the newest file and use its link; these files are never served by the website or committed. Delete expired preview files when no longer needed. This is a development mailbox, not delivery to a real inbox.
+
+For real email delivery on Node/Vercel, set server-only `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and `APP_URL` (the canonical site URL, HTTPS in production). Enable Google 2-Step Verification, create a [Google App Password](https://support.google.com/accounts/answer/185833), and save it as a Production Secret in Vercel. Never use your normal Google password. Messages are sent from the authenticated Gmail address over TLS; Gmail's sending limits and account security checks still apply.
+
+Alternatively, configure `RESEND_API_KEY` and `MAIL_FROM` using a verified Resend sending domain. Gmail takes precedence when both Gmail variables are present. Resend's default sender supports testing to the Resend account owner's email only, so it is unsuitable for client account verification. The Worker build supports Resend only.
+
+To load an environment file locally, use `node --env-file=.env.local server.mjs` after building. Keep `DATABASE_URL` empty for SQLite. No real email provider credentials are included. Cloud runtimes require email configuration and the new Supabase migration before releasing these features; they never fall back to local preview files.
+
+### Package catalog and predictions
+
+Clients browse **Travel packages**, search by package/destination, filter by category, and start a request with the selected package. Both booking selectors show destinations and base prices; final fares remain subject to administrator approval. Administrators manage the same catalog in their own workspace and see account verification status in **Accounts**.
+
+**Predictive analytics → Package best sellers** compares recorded package sales and booking counts with forecasts for the next 1–6 months, starting in the current month. Each active package is modeled independently using the existing historical-average/last-month/drift selection and rolling-origin validation. At least three completed months after that package’s first observed month are needed. Inactive and insufficient-history packages are explained separately; unlinked bookings do not enter package rankings. Cancelled and future-dated records are excluded. Ties share a rank. CSV export, monthly predictions, and indicative ranges are available. These are planning estimates without seasonal or campaign effects. The existing agency-level forecasts remain available in the **Agency forecast** tab.
+
+## Supabase and Vercel deployment
 
 The production deployment uses React and Tailwind assets built by Vite, a Node.js Vercel Function in `api/index.mjs`, and Supabase Postgres in Singapore. It preserves Systema's server-side password authentication and HttpOnly sessions. Supabase Auth is not used; application accounts are stored in the private `systema.users` table.
 

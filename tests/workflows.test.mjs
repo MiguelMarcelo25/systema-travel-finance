@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handleApi } from '../src/api.mjs';
+import { handleApi } from './verified-fixture.mjs';
 import { openDatabase } from '../src/database.mjs';
 import { mkdtempSync, mkdirSync, unlinkSync, rmdirSync } from 'node:fs';
 import path from 'node:path';

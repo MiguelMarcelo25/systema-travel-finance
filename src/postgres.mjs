@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { readFileSync } from 'node:fs';
 
-const tables = new Set(['users', 'sessions', 'customers', 'packages', 'bookings', 'payments', 'expenses', 'audit', 'settings', 'auth_attempts', 'booking_requests', 'client_documents']);
+const tables = new Set(['users', 'sessions', 'customers', 'packages', 'bookings', 'payments', 'expenses', 'audit', 'settings', 'auth_attempts', 'booking_requests', 'client_documents', 'account_tokens']);
 const safeNumber = value => {
   const number = Number(value);
   if (!Number.isSafeInteger(number)) throw new Error('Database amount exceeds safe integer precision.');

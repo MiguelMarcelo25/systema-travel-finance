@@ -1,3 +1,6 @@
+import { accountSecurity } from './account-security.mjs';
+import { packageForecast } from './package-forecast.mjs';
+import { remoteMail } from './mail.mjs';
 import { forecastRecords } from './forecast.mjs';
 import { handleDocuments } from './documents-api.mjs';
 const categories=['Tour package','Flight booking','Hotel reservation','Visa assistance'];
@@ -16,6 +19,8 @@ async function passwordHash(password,salt=crypto.randomUUID()){if(typeof passwor
 async function matches(password,stored){try{const hashed=await passwordHash(password,stored.split(':')[0]);let difference=hashed.length^stored.length;for(let i=0;i<stored.length;i++)difference|=(hashed.charCodeAt(i)||0)^stored.charCodeAt(i);return difference===0}catch{return false}}
 async function digest(value){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode(value))),b=>b.toString(16).padStart(2,'0')).join('')}
 export async function handleApi(request,env){
+ env={...env,MAIL:env.MAIL||remoteMail(env)};
+ const security=accountSecurity(env);
  const DB=env.DB;const path=new URL(request.url).pathname;const method=request.method;
  const json=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...extra}});
  const q=(sql,...args)=>DB.prepare(sql).bind(...args);const one=async(sql,...args)=>q(sql,...args).first();const all=async(sql,...args)=>(await q(sql,...args).all()).results;
@@ -26,10 +31,43 @@ export async function handleApi(request,env){
   if(!['GET','HEAD'].includes(method)) {const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)fail('This request is not allowed.',403);if(!request.headers.get('content-type')?.includes(fileUpload?'multipart/form-data':'application/json'))fail(fileUpload?'Send a document file.':'Send JSON data.',415);}
   const initialized=Boolean(await one('SELECT id FROM users LIMIT 1'));
   const rawCookie=(request.headers.get('cookie')||'').match(/(?:^|; )systema_session=([^;]+)/)?.[1];
-  const user=rawCookie?await one('SELECT u.id,u.name,u.email,u.role,u.customer_id FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>? AND u.active=1',await digest(rawCookie),Date.now()):null;
-  if(path==='/api/session'&&method==='GET')return json({initialized,user});
+  const user=rawCookie?await one('SELECT u.id,u.name,u.email,u.role,u.customer_id,u.email_verified_at FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>? AND u.active=1',await digest(rawCookie),Date.now()):null;
+  if(path==='/api/session'&&method==='GET')return json({initialized,user,emailPreview:env.LOCAL===true&&env.MAIL_PREVIEW===true});
   let body={};if(!['GET','HEAD'].includes(method)&&!fileUpload){const text=await request.text();if(text.length>30000)fail('Request is too large.',413);try{body=JSON.parse(text)}catch{fail('Invalid request data.')};if(!body||Array.isArray(body)||typeof body!=='object')fail('Invalid request data.');}
   const login=async(id)=>{const token=crypto.randomUUID()+crypto.randomUUID();await DB.batch([q('DELETE FROM sessions WHERE expires<?',Date.now()),q('INSERT INTO sessions(token,user_id,expires) VALUES(?,?,?)',await digest(token),id,Date.now()+43200000)]);return json({ok:true},200,{'Set-Cookie':cookie(token)})};
+  if(path==='/api/forgot-password'&&method==='POST') {
+   const mail=email(body.email);
+   await security.limit('reset-ip',env.CLIENT_IP||'unknown',20);
+   await security.limit('reset-email',mail);
+   if(!env.MAIL||!env.APP_URL)fail('Email delivery is unavailable. Please contact the administrator.',503);
+   const account=await one('SELECT id,email FROM users WHERE email=? AND active=1',mail);
+   // Identical public response for known/unknown accounts, including provider failures.
+   if(account)try{await security.issue(account,'reset')}catch{console.error('Password recovery email delivery failed.');}
+   return json({ok:true,message:'If an active account matches that email, a password reset link will arrive shortly.'});
+  }
+  if(path==='/api/reset-password'&&method==='POST') {
+   await security.limit('reset-consume',env.CLIENT_IP||'unknown',20);
+   if(body.password!==body.confirm_password)fail('Passwords must match.');
+   const token=await security.find(body.token,'reset'),hash=await passwordHash(body.password);
+   const result=await DB.batch([
+    q('DELETE FROM account_tokens WHERE token_hash=? AND expires>? AND EXISTS(SELECT 1 FROM users WHERE id=? AND email=? AND active=1)',token.token_hash,Date.now(),token.user_id,token.email),
+    q('UPDATE users SET password=? WHERE id=? AND changes()>0',hash,token.user_id),
+    q('DELETE FROM sessions WHERE user_id=? AND EXISTS(SELECT 1 FROM users WHERE id=? AND password=?)',token.user_id,token.user_id,hash),
+    q('DELETE FROM account_tokens WHERE user_id=? AND EXISTS(SELECT 1 FROM users WHERE id=? AND password=?)',token.user_id,token.user_id,hash)
+   ]);
+   if(!result[0].meta.changes)fail('This link is invalid or expired. Request a new one.');
+   return json({ok:true},200,{'Set-Cookie':cookie('',0)});
+  }
+  if(path==='/api/verify-email'&&method==='POST') {
+   await security.limit('verify-consume',env.CLIENT_IP||'unknown',20);
+   const token=await security.find(body.token,'verify');
+   const result=await DB.batch([
+    q('DELETE FROM account_tokens WHERE token_hash=? AND expires>? AND EXISTS(SELECT 1 FROM users WHERE id=? AND email=? AND active=1)',token.token_hash,Date.now(),token.user_id,token.email),
+    q('UPDATE users SET email_verified_at=? WHERE id=? AND changes()>0',now(),token.user_id)
+   ]);
+   if(!result[0].meta.changes)fail('This link is invalid or expired. Request a new one.');
+   return json({ok:true});
+  }
   if(path==='/api/register'&&method==='POST') {
    if(!initialized)fail('The administrator must set up the workspace before clients can register.',503);
    if(user)fail('Sign out before creating a new client account.',409);
@@ -46,6 +84,7 @@ export async function handleApi(request,env){
     q('INSERT INTO users(id,name,email,role,password,active,created,customer_id) VALUES(?,?,?,\'Client\',?,1,?,?)',id,name,mail,hash,created,customerId),
     q('INSERT INTO audit(id,user_id,action,entity_id,created) VALUES(?,?,?,?,?)',uid('LOG'),id,'Registered client account',id,created)
    ]);
+   if(env.MAIL&&env.APP_URL)try{await security.issue({id,email:mail},'verify')}catch{ /* The signed-in verification screen supports retry. */ }
    return login(id);
   }
   if(method==='POST'&&(path==='/api/setup'||(path==='/api/login'&&!initialized))) {
@@ -55,6 +94,7 @@ export async function handleApi(request,env){
    const id=uid('USR');const bootstrap=path==='/api/login';const name=bootstrap?'Administrator':str(body.name,'Name');const mail=email(body.email);const hash=await passwordHash(body.password);
    await DB.batch([q('INSERT INTO users(id,name,email,role,password,created) SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM users)',id,name,mail,'Administrator',hash,now()),q('INSERT INTO settings(key,value) VALUES(?,?)','agency',bootstrap?'Systema Travel':str(body.agency,'Agency name')),q('INSERT INTO settings(key,value) VALUES(?,?)','demo',!bootstrap&&body.demo?'true':'false')]);
    if(!bootstrap&&body.demo)await seed(DB,id);
+   if(env.MAIL&&env.APP_URL)try{await security.issue({id,email:mail},'verify')}catch{}
    return login(id);
   }
   if(path==='/api/login'&&method==='POST') {
@@ -66,10 +106,18 @@ export async function handleApi(request,env){
    await q('DELETE FROM auth_attempts WHERE key=?',key).run();return login(account.id);
   }
   if(!user)fail('Please sign in to continue.',401);
+  if(path==='/api/logout'&&method==='POST'){if(rawCookie)await q('DELETE FROM sessions WHERE token=?',await digest(rawCookie)).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)})}
+  if(path==='/api/resend-verification'&&method==='POST') {
+   if(user.email_verified_at)return json({ok:true,verified:true});
+   await security.limit('verify-user',user.id);
+   await security.limit('verify-ip',env.CLIENT_IP||'unknown',20);
+   await security.issue(user,'verify');return json({ok:true});
+  }
+  if(!user.email_verified_at)fail('Verify your email address to open your workspace.',403);
   if(path==='/api/documents'||path.startsWith('/api/documents/'))return await handleDocuments(request,env,user,body);
   const allow=(...allowed)=>{if(!allowed.includes(user.role))fail('Your role does not have permission to perform this action.',403)};
   const audit=(action,id)=>q('INSERT INTO audit(id,user_id,action,entity_id,created) VALUES(?,?,?,?,?)',uid('LOG'),user.id,action,id,now());
-  if(path==='/api/logout'&&method==='POST'){if(rawCookie)await q('DELETE FROM sessions WHERE token=?',await digest(rawCookie)).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)})}
+
   if(path==='/api/requests'&&method==='POST') {
    allow('Client');if(!user.customer_id)fail('Ask the administrator to link your account to your customer record.',409);
    const requestId=str(body.request_id,'Request identifier',100),duplicate=await one('SELECT id,customer_id FROM booking_requests WHERE request_id=?',requestId);if(duplicate){if(duplicate.customer_id!==user.customer_id)fail('Request identifier is unavailable.',409);return json({id:duplicate.id})}
@@ -84,6 +132,12 @@ export async function handleApi(request,env){
    if(requestRow.travel_date<day())fail('The requested travel date is in the past. Ask the client to submit an updated request.');
    const base=money(body.base,'Base fare'),tax=money(body.tax,'Taxes'),discount=money(body.discount,'Discount'),cost=money(body.supplier_cost,'Supplier cost'),total=base+tax-discount;if(total<=0)fail('The total must be greater than zero.');const bookingId=uid('BKG');
    const result=await DB.batch([q('INSERT INTO bookings(id,customer_id,package_id,service,destination,category,date,travel_date,passengers,base,tax,discount,supplier_cost,total,status,notes,created_by) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,\'Confirmed\',?,? FROM booking_requests WHERE id=? AND status=\'Pending\'',bookingId,requestRow.customer_id,requestRow.package_id,requestRow.service,requestRow.destination,requestRow.category,day(),requestRow.travel_date,requestRow.passengers,base,tax,discount,cost,total,requestRow.notes,user.id,id),q('UPDATE booking_requests SET status=\'Accepted\',decision_notes=?,reviewed_by=?,reviewed_at=?,booking_id=? WHERE id=? AND status=\'Pending\' AND EXISTS(SELECT 1 FROM bookings WHERE id=?)',notes,user.id,now(),bookingId,id,bookingId),q('INSERT INTO audit(id,user_id,action,entity_id,created) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM bookings WHERE id=?)',uid('LOG'),user.id,'Accepted booking request',id,now(),bookingId)]);if(!result[0].meta.changes)fail('This booking request has already been reviewed.',409);return json({id,booking_id:bookingId});
+  }
+  if(path==='/api/package-forecast'&&method==='GET') {
+   allow('Administrator');const params=new URL(request.url).searchParams,horizon=Number(params.get('horizon')||3),metric=params.get('metric')||'bookings';
+   if(!Number.isInteger(horizon)||horizon<1||horizon>6||!['bookings','sales'].includes(metric))fail('Choose a valid package forecast metric and horizon.');
+   const [packages,records,demo]=await Promise.all([all('SELECT * FROM packages'),all('SELECT package_id,date,total,status FROM bookings'),one('SELECT value FROM settings WHERE key=?','demo')]);
+   return json(packageForecast(packages,records,{horizon,metric,asOf:day(),demo:demo?.value==='true'}));
   }
   if(path==='/api/forecast'&&method==='GET') {
    allow('Administrator');
@@ -102,7 +156,7 @@ export async function handleApi(request,env){
    }
    allow('Administrator');
    const [customers,packages,bookings,payments,expenses,settings,users,audits]=await Promise.all([
-    all('SELECT * FROM customers ORDER BY name'),all('SELECT * FROM packages ORDER BY name'),all('SELECT b.*,c.name customer_name,c.email customer_email,COALESCE((SELECT SUM(amount) FROM payments p WHERE p.booking_id=b.id),0) paid FROM bookings b JOIN customers c ON b.customer_id=c.id ORDER BY b.date DESC,b.rowid DESC'),all('SELECT p.*,b.service,c.name customer_name FROM payments p JOIN bookings b ON p.booking_id=b.id JOIN customers c ON b.customer_id=c.id ORDER BY p.date DESC,p.rowid DESC'),all('SELECT * FROM expenses ORDER BY date DESC,rowid DESC'),all('SELECT * FROM settings'),user.role==='Administrator'?all('SELECT id,name,email,role,active,created,customer_id FROM users ORDER BY name'):[],user.role==='Administrator'?all('SELECT a.*,u.name user_name FROM audit a JOIN users u ON a.user_id=u.id ORDER BY a.rowid DESC LIMIT 30'):[]
+    all('SELECT * FROM customers ORDER BY name'),all('SELECT * FROM packages ORDER BY name'),all('SELECT b.*,c.name customer_name,c.email customer_email,COALESCE((SELECT SUM(amount) FROM payments p WHERE p.booking_id=b.id),0) paid FROM bookings b JOIN customers c ON b.customer_id=c.id ORDER BY b.date DESC,b.rowid DESC'),all('SELECT p.*,b.service,c.name customer_name FROM payments p JOIN bookings b ON p.booking_id=b.id JOIN customers c ON b.customer_id=c.id ORDER BY p.date DESC,p.rowid DESC'),all('SELECT * FROM expenses ORDER BY date DESC,rowid DESC'),all('SELECT * FROM settings'),user.role==='Administrator'?all('SELECT id,name,email,role,active,created,customer_id,email_verified_at FROM users ORDER BY name'):[],user.role==='Administrator'?all('SELECT a.*,u.name user_name FROM audit a JOIN users u ON a.user_id=u.id ORDER BY a.rowid DESC LIMIT 30'):[]
    ]);const requests=await all('SELECT r.*,c.name customer_name,p.name service,p.destination,p.price FROM booking_requests r JOIN customers c ON c.id=r.customer_id JOIN packages p ON p.id=r.package_id ORDER BY r.requested_at DESC');return json({user,customers,packages,bookings,payments,expenses,requests,settings:Object.fromEntries(settings.map(s=>[s.key,s.value])),users,audits,categories,roles});
   }
   if(path==='/api/customers'&&method==='POST'){
@@ -150,7 +204,7 @@ export async function handleApi(request,env){
    if(existing?.role==='Administrator'&&(role!=='Administrator'||!active))fail('The sole administrator must remain active.',409);
    const customerId=role==='Client'?(body.customer_id||existing?.customer_id):null;
    if(role==='Client'&&(!customerId||!await one('SELECT id FROM customers WHERE id=?',customerId)))fail('Link this client account to an existing customer.');
-   if(existing){const hash=body.password?await passwordHash(body.password):existing.password;await DB.batch([q('UPDATE users SET name=?,email=?,role=?,active=?,password=?,customer_id=? WHERE id=?',name,mail,role,active,hash,customerId,id),q('DELETE FROM sessions WHERE user_id=?',id),audit('Updated account',id)]);}
+   if(existing){const hash=body.password?await passwordHash(body.password):existing.password;await DB.batch([q('UPDATE users SET name=?,email=?,role=?,active=?,password=?,customer_id=?,email_verified_at=? WHERE id=?',name,mail,role,active,hash,customerId,existing.email===mail?existing.email_verified_at:null,id),q('DELETE FROM sessions WHERE user_id=?',id),q('DELETE FROM account_tokens WHERE user_id=?',id),audit('Updated account',id)]);}
    else {const hash=await passwordHash(body.password);await DB.batch([q('INSERT INTO users(id,name,email,role,password,active,created,customer_id) VALUES(?,?,?,?,?,?,?,?)',id,name,mail,'Client',hash,active,now(),customerId),audit('Created client account',id)]);}
    return json({id});
   }

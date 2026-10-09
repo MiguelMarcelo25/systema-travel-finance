@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./packages.css";
 @theme {
   --color-navy: #142b3d;
   --color-ink: #20384b;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openDatabase } from '../src/database.mjs';
-import { handleApi } from '../src/api.mjs';
+import { handleApi } from './verified-fixture.mjs';
 import { MAX_DOCUMENT_BYTES } from '../src/requirements.mjs';
 const pdf = new TextEncoder().encode('%PDF-1.4\n% Fictional requirement test document\n%%EOF');
 class MemoryStorage {
