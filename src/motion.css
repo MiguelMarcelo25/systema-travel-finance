@@ -1,0 +1,133 @@
+/* A single motion language for agency operations and traveler journeys. */
+:root {
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+}
+
+.stat-value-reveal { display: inline-block; }
+.traveler-journey-visual { position: relative; overflow: hidden; min-width: 0; }
+.traveler-journey-visual > img { width: 100%; height: 100%; min-height: 320px; max-height: 390px; object-fit: cover; }
+.journey-flight { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.journey-flight-plane { transform: translate(414px, 66px); }
+.journey-flight-trail { opacity: .8; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* A route change reveals the title, then the newly mounted content. */
+  .workspace-main > .ui-page-title { animation: heading-arrive 240ms var(--ease-out) backwards; }
+  .agency-priorities { animation: surface-arrive 280ms 40ms var(--ease-out) backwards; }
+  .overview-stats > .ui-stat,
+  .package-grid > .package-card,
+  .traveler-requests > .traveler-request {
+    animation: surface-arrive 280ms var(--ease-out) backwards;
+  }
+  :is(.overview-stats, .package-grid, .traveler-requests) > :nth-child(2) { animation-delay: 40ms; }
+  :is(.overview-stats, .package-grid, .traveler-requests) > :nth-child(3) { animation-delay: 80ms; }
+  :is(.overview-stats, .package-grid, .traveler-requests) > :nth-child(4) { animation-delay: 120ms; }
+  :is(.package-grid, .traveler-requests) > :nth-child(n+5) { animation-delay: 160ms; }
+  .stat-value-reveal { animation: number-arrive 280ms 80ms var(--ease-out) backwards; }
+  .ui-stat:nth-child(2) .stat-value-reveal { animation-delay: 120ms; }
+  .ui-stat:nth-child(3) .stat-value-reveal { animation-delay: 160ms; }
+  .ui-stat:nth-child(4) .stat-value-reveal { animation-delay: 200ms; }
+  .chart-line-reveal { animation: chart-reveal 280ms 160ms var(--ease-out) backwards; }
+  .chart-line-prediction { animation-delay: 240ms; }
+  .catalog-filters { animation: heading-arrive 240ms 40ms var(--ease-out) backwards; }
+
+  /* The coastal image and flight path are the one longer, authored entrance. */
+  .traveler-journey-content { animation: heading-arrive 280ms var(--ease-out) backwards; }
+  .traveler-journey-visual > img { animation: coast-arrive 800ms var(--ease-out) backwards; }
+  .journey-flight-trail { animation: chart-reveal 800ms 160ms var(--ease-in-out) backwards; }
+  .journey-flight-plane { animation: flight-arrive 800ms 160ms var(--ease-in-out) backwards; }
+  .traveler-status > a { animation: surface-arrive 280ms 80ms var(--ease-out) backwards; }
+  .traveler-status > a:nth-child(2) { animation-delay: 120ms; }
+  .traveler-status > a:nth-child(3) { animation-delay: 160ms; }
+
+  /* Reversible feedback follows the pointer or press without queuing motion. */
+  body[data-workspace] .ui-button,
+  .traveler-primary-link,
+  .workspace-menu-button,
+  .sidebar-toggle,
+  .sidebar-mobile-close {
+    transition: transform 160ms var(--ease-out), background-color 160ms ease, border-color 160ms ease;
+  }
+  body[data-workspace] .ui-button:active:not(:disabled),
+  .traveler-primary-link:active,
+  .workspace-menu-button:active { transform: scale(.97); }
+  .ui-button > svg, .ui-text-link > svg, .traveler-primary-link > svg,
+  .sidebar-link > svg, .upcoming-trip > svg:last-child,
+  .traveler-status > a > svg:last-child, .package-category > svg {
+    transition: transform 180ms var(--ease-out);
+  }
+  .package-card { transition: transform 200ms var(--ease-out), border-color 160ms ease; }
+  .sidebar-link { transition: background-color 160ms ease, color 160ms ease; }
+  .sidebar-link.is-active > svg { animation: nav-settle 200ms var(--ease-out); }
+  .custom-select > span:last-child { transition: transform 180ms var(--ease-out); }
+
+  .select-menu { transform-origin: var(--radix-select-content-transform-origin); }
+  .calendar-menu, .account-popover { transform-origin: var(--radix-popover-content-transform-origin); }
+  :is(.select-menu, .calendar-menu, .account-popover) {
+    transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+  }
+  @starting-style {
+    :is(.select-menu, .calendar-menu, .account-popover)[data-state="open"] { opacity: 0; transform: translateY(-6px) scale(.96); }
+  }
+  :is(.select-menu, .calendar-menu, .account-popover)[data-state="closed"] { animation: menu-depart 150ms var(--ease-out); }
+
+  body[data-workspace] .ui-modal[open] {
+    transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out);
+  }
+  .ui-modal::backdrop { transition: opacity 250ms var(--ease-out), overlay 250ms allow-discrete, display 250ms allow-discrete; }
+  @starting-style {
+    body[data-workspace] .ui-modal[open] { opacity: 0; transform: translateY(16px) scale(.96); }
+    .ui-modal[open]::backdrop { opacity: 0; }
+  }
+  .access-success { transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out); }
+  @starting-style { .access-success { opacity: 0; transform: translateY(-8px); } }
+  .ui-chart-details[open] > .ui-table-scroll { animation: heading-arrive 200ms var(--ease-out); }
+
+  @media (hover: hover) and (pointer: fine) {
+    .package-card:hover { transform: translateY(-5px); border-color: #859fcf; }
+    .package-card:hover .package-category > svg { transform: rotate(-12deg) scale(1.12); }
+    body[data-workspace] .ui-button:hover:not(:disabled), .traveler-primary-link:hover { transform: translateY(-2px); }
+    body[data-workspace] .ui-button:hover:not(:disabled) > svg { transform: translateX(2px); }
+    .ui-text-link:hover > svg, .traveler-primary-link:hover > svg,
+    .traveler-status > a:hover > svg:last-child { transform: translate(3px, -3px); }
+    .sidebar-link:hover > svg { transform: translateX(2px) rotate(-6deg); }
+    .upcoming-trip:hover > svg:last-child { transform: translate(3px, -3px); }
+    body[data-workspace] .ui-button:active:not(:disabled), .traveler-primary-link:active { transform: scale(.97); }
+  }
+  @media (max-width: 1023px) {
+    .sidebar { transition: transform 280ms var(--ease-drawer); }
+    .sidebar.is-mobile-open .sidebar-section { animation: heading-arrive 240ms 80ms var(--ease-out) backwards; }
+  }
+}
+
+@keyframes heading-arrive { from { opacity: .15; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes surface-arrive { from { opacity: .15; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes number-arrive { from { opacity: 0; transform: translateY(40%); } to { opacity: 1; transform: translateY(0); } }
+@keyframes chart-reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes coast-arrive { from { transform: scale(1.12); } to { transform: scale(1); } }
+@keyframes nav-settle { from { transform: scale(.85); } to { transform: scale(1); } }
+@keyframes menu-depart { to { opacity: 0; transform: translateY(-6px) scale(.96); } }
+@keyframes flight-arrive {
+  0% { transform: translate(60px, 254px) rotate(8deg); opacity: 0; }
+  15% { opacity: 1; }
+  30% { transform: translate(151px, 179px) rotate(-10deg); }
+  55% { transform: translate(246px, 130px) rotate(30deg); }
+  75% { transform: translate(331px, 109px) rotate(10deg); }
+  100% { transform: translate(414px, 66px) rotate(0); opacity: 1; }
+}
+@media (max-width: 760px) {
+  .traveler-journey-visual { height: 160px; }
+  .traveler-journey-visual > img { min-height: 0; object-position: 50% 60%; }
+  .journey-flight { width: 80%; left: 10%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-flight { display: none; }
+  /* Keep state feedback, without entrances or spatial movement. */
+  body[data-workspace] :is(.ui-button, .sidebar-link, .custom-select) { transition: background-color 120ms ease, color 120ms ease !important; }
+}
+@media print {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .journey-flight { display: none; }
+}

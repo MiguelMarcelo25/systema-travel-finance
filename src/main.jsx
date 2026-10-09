@@ -9,6 +9,9 @@ import { api } from './utils';
 const ClientPortal = lazy(() => import('./ClientPortal.jsx'));
 import './styles.css';
 import './workspace.css';
+import './experience.css';
+import './motion.css';
+import './travel-video.css';
 const Workspace = lazy(() => import('./Workspace'));
 function App() {
   const [session, setSession] = useState(null), [error, setError] = useState('');

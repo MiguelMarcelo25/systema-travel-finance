@@ -3,10 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { MailCheck, KeyRound, CheckCircle2 } from 'lucide-react';
 import { Button, Field, Logo } from './components';
 import { api } from './utils';
+import TravelVideo from './TravelVideo';
 import { needsEmailVerification } from './account-policy.mjs';
 
 export function AccessLayout({ title, description, children }) {
-  return <main className="auth-screen"><aside className="auth-visual" aria-label="Travel inspiration"><picture><source media="(max-width: 767px)" srcSet="/images/systema-coast-mobile.webp"/><img className="auth-photo" src="/images/systema-coast.webp" width="1122" height="1402" alt="A sunlit tropical cove with turquoise water and limestone cliffs"/></picture><div className="auth-visual-copy"><h2>Your next journey starts here.</h2><p>One account for your journeys, documents, and peace of mind.</p></div></aside><section className="auth-form-panel" aria-labelledby="access-title"><div className="auth-form-content"><div className="auth-brand"><Logo/><span>Travel, in balance.</span></div><div className="auth-heading"><h1 id="access-title">{title}</h1><p>{description}</p></div>{children}</div></section></main>;
+  return <main className="auth-screen"><aside className="auth-visual" aria-label="Travel inspiration"><TravelVideo/><div className="auth-visual-copy"><h2>Your next journey starts here.</h2><p>One account for your journeys, documents, and peace of mind.</p></div></aside><section className="auth-form-panel" aria-labelledby="access-title"><div className="auth-form-content"><div className="auth-brand"><Logo/><span>Travel, in balance.</span></div><div className="auth-heading"><h1 id="access-title">{title}</h1><p>{description}</p></div>{children}</div></section></main>;
 }
 
 export default function AccountAccess({ mode, session, refresh }) {

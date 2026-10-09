@@ -6,10 +6,10 @@ import { Logo } from './components';
 export default function Sidebar({ items, mobile, onClose, label = 'Workspace' }) {
   const sections = label === 'Client workspace' ? [{ name: 'My workspace', keys: items.map(item => item.key) }] : [{ name: 'Workspace', keys: ['overview'] }, { name: 'Operations', keys: ['bookings', 'requests', 'customers', 'packages', 'documents'] }, { name: 'Finance', keys: ['payments', 'expenses', 'financial'] }, { name: 'Insights', keys: ['analytics', 'forecast', 'reports'] }, { name: 'Administration', keys: ['team'] }];
   const root = useRef(null);
-  const [pinned, setPinned] = useState(false), [hovered, setHovered] = useState(false), [suppressHover, setSuppressHover] = useState(false), [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 1023px)').matches);
+  const [pinned, setPinned] = useState(true), [hovered, setHovered] = useState(false), [suppressHover, setSuppressHover] = useState(false), [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 1023px)').matches);
   function toggle() { setPinned(!pinned); setSuppressHover(pinned); setHovered(false); }
   function hover(event) { if (!suppressHover && !event.target.closest('.sidebar-toggle')) setHovered(true); }
-  useEffect(() => { const media = window.matchMedia('(max-width: 1023px)'); const update = () => setNarrow(media.matches); media.addEventListener('change', update); return () => media.removeEventListener('change', update); }, []);
+  useEffect(() => { const media = window.matchMedia('(max-width: 1023px)'); const update = () => setNarrow(media.matches); update(); media.addEventListener('change', update); return () => media.removeEventListener('change', update); }, []);
   useEffect(() => {
     if (!mobile) return;
     const previous = document.body.style.overflow, opener = document.activeElement;
