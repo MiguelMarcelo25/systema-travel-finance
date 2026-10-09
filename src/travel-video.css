@@ -1,0 +1,22 @@
+.travel-video { position: absolute; inset: 0; overflow: hidden; background: #163e51; }
+.travel-video-poster, .travel-video > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 55%; }
+.travel-video > video { opacity: 0; transition: opacity 250ms var(--ease-out); }
+.travel-video > video.is-ready { opacity: 1; }
+.travel-video-toggle { position: absolute; z-index: 3; top: 20px; right: 20px; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid rgb(255 255 255 / .45); border-radius: 8px; background: rgb(12 31 39 / .82); color: white; font-size: 12px; font-weight: 600; }
+.travel-video-toggle:hover { background: #102d38; }
+.travel-video-toggle:focus-visible { outline: 3px solid white; outline-offset: 3px; }
+.auth-visual .travel-video-poster, .auth-visual .travel-video > video { object-position: center; }
+.traveler-journey { position: relative; isolation: isolate; display: block; min-height: 400px; }
+.traveler-journey::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg, rgb(9 33 43 / .94), rgb(9 33 43 / .75) 44%, rgb(9 33 43 / .12) 100%); }
+.traveler-journey-content { position: relative; z-index: 2; max-width: 65%; padding: 46px 40px; }
+.traveler-journey-content h2 { font-size: clamp(28px, 2.8vw, 40px); }
+.traveler-journey .travel-video-poster, .traveler-journey .travel-video > video { object-position: center 60%; }
+@media (max-width: 760px) {
+  .travel-video-toggle { top: 12px; right: 12px; }
+  .auth-visual .travel-video-toggle span { display: none; }
+  .traveler-journey { min-height: 430px; display: flex; align-items: flex-end; }
+  .traveler-journey-content { max-width: none; width: 100%; padding: 90px 26px 30px; }
+  .traveler-journey-content h2 { font-size: 28px; }
+  .traveler-journey::after { background: linear-gradient(0deg, rgb(9 33 43 / .98), rgb(9 33 43 / .78) 55%, rgb(9 33 43 / .1) 100%); }
+}
+@media print { .travel-video > video, .travel-video-toggle { display: none; } }

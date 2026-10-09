@@ -9,7 +9,7 @@
 .catalog-intro h2, .package-forecast-heading h2 { font-size: 24px; line-height: 1.25; font-weight: 650; letter-spacing: -.025em; }
 .catalog-intro p, .package-forecast-heading p { font-size: 14px; line-height: 1.7; color: #53647b; margin-top: 8px; max-width: 65ch; }
 .catalog-count { color: #53647b; font-size: 13px; white-space: nowrap; }
-.catalog-filters { display: grid; grid-template-columns: minmax(0,1fr) 240px; align-items: end; gap: 20px; margin-bottom: 24px; }
+.catalog-filters { display: grid; grid-template-columns: minmax(0,1fr) 200px 200px; align-items: end; gap: 16px; padding: 20px; margin-bottom: 10px; background: white; border: 1px solid #dce3ee; border-radius: 12px; }
 .catalog-search { position: relative; }
 .catalog-search > svg { position: absolute; top: 16px; left: 16px; color: #53647b; }
 .catalog-search input { padding-left: 44px; }
@@ -61,7 +61,7 @@
 .package-methods summary { font-weight: 600; min-height: 32px; }
 .package-methods ul { padding-left: 20px; }
 .package-methods li, .package-methods p { margin-top: 12px; line-height: 1.7; color: #53647b; }
-@media (max-width: 1150px) { .package-ranking-layout { grid-template-columns: 1fr; } }
+@media (max-width: 1150px) { .package-ranking-layout { grid-template-columns: 1fr; } .catalog-filters { grid-template-columns: repeat(2,minmax(0,1fr)); } .catalog-search { grid-column: 1 / -1; } }
 @media (max-width: 600px) {
  .catalog-filters { grid-template-columns: 1fr; gap: 12px; }
  .catalog-intro { align-items: start; gap: 16px; }

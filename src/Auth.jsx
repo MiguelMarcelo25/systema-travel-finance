@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { Button, Field, Logo } from './components';
 import { api } from './utils';
+import TravelVideo from './TravelVideo';
 
 export default function Auth({ session, refresh, register = false }) {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export default function Auth({ session, refresh, register = false }) {
   if (session.user) return <Navigate to="/app" replace/>;
   return <main className={`auth-screen ${register ? 'auth-register' : ''}`}>
     <aside className="auth-visual" aria-label="Travel inspiration">
-      <picture><source media="(max-width: 767px)" srcSet="/images/systema-coast-mobile.webp"/><img className="auth-photo" src="/images/systema-coast.webp" width="1122" height="1402" alt="A sunlit tropical cove with turquoise water, limestone cliffs, and a small outrigger boat" fetchPriority="high" decoding="async"/></picture>
+      <TravelVideo/>
       <div className="auth-visual-copy"><h2>Your next journey starts here.</h2><p>Plan your travels and keep every booking, payment, and detail in one place.</p></div>
     </aside>
     <section className="auth-form-panel" aria-labelledby="login-title">
