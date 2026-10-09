@@ -8,6 +8,7 @@ import WorkspaceHeader from './WorkspaceHeader';
 import Overview from './Overview';
 import PackageCatalog from './PackageCatalog';
 import { SelectControl } from './controls';
+import { isVerificationExempt } from './account-policy.mjs';
 import { api, compact, downloadCsv, money, payStatus, pretty, sum, today } from './utils';
 const Documents = lazy(() => import('./Documents.jsx'));
 const Forecast = lazy(() => import('./Forecast.jsx'));
@@ -59,7 +60,7 @@ export default function Workspace({ session, refreshSession }) {
     packages: [{ label: 'Service', render: row => <div className="font-medium">{row.name}<p className="mt-1 text-xs font-normal text-slate-500">{row.category}</p></div> }, { label: 'Destination', render: row => row.destination }, { label: 'Base price', right: true, render: row => money(row.price) }, { label: 'Availability', render: row => row.active ? 'Active' : 'Inactive' }, { label: 'Action', render: row => canBook && <Button secondary onClick={() => edit('packages', row)}>Edit</Button> }],
     payments: [{ label: 'Receipt', render: row => <ActivityLink onClick={() => edit('receipt', row)}>{row.id}</ActivityLink> }, { label: 'Customer / service', render: row => <div>{row.customer_name}<p className="mt-1 text-xs text-slate-500">{row.service}</p></div> }, { label: 'Date', render: row => pretty(row.date) }, { label: 'Method', render: row => row.method }, { label: 'Amount', right: true, render: row => money(row.amount) }],
     expenses: [{ label: 'Expense', render: row => <div>{row.description}<p className="mt-1 text-xs text-slate-500">{row.id}</p></div> }, { label: 'Category', render: row => row.category }, { label: 'Payee', render: row => row.payee }, { label: 'Date', render: row => pretty(row.date) }, { label: 'Amount', right: true, render: row => money(row.amount) }],
-    team: [{ label: 'Name', render: row => <div>{row.name}<p className="mt-1 text-xs text-slate-500">{row.email}</p></div> }, { label: 'Role', render: row => row.role }, { label: 'Email verification', render: row => <Badge>{row.email_verified_at ? 'Verified' : 'Awaiting verification'}</Badge> }, { label: 'Account', render: row => row.active ? 'Active' : 'Inactive' }, { label: 'Action', render: row => <Button secondary onClick={() => edit('users', row)}>Edit access</Button> }],
+    team: [{ label: 'Name', render: row => <div>{row.name}<p className="mt-1 text-xs text-slate-500">{row.email}</p></div> }, { label: 'Role', render: row => row.role }, { label: 'Email verification', render: row => <Badge>{isVerificationExempt(row) ? 'Not required' : row.email_verified_at ? 'Verified' : 'Awaiting verification'}</Badge> }, { label: 'Account', render: row => row.active ? 'Active' : 'Inactive' }, { label: 'Action', render: row => <Button secondary onClick={() => edit('users', row)}>Edit access</Button> }],
   } : {};
   const timeline = data ? monthly(active, data.payments, data.expenses) : [];
   let reportHeaders, reportRows;

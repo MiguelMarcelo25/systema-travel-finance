@@ -16,7 +16,7 @@ Manage travel bookings, requests, payments, documents, and agency financial repo
 
 ## Capabilities and Constraints
 
-The user requested password recovery, account email verification, package sales predictions, and improved admin/client interfaces. They confirmed that booking selection should show travel packages with destinations and prices. Existing financial rules, client privacy, and administrator approval of requests remain in place. Predictions must distinguish estimates from recorded sales.
+The user requested password recovery, account email verification, package sales predictions, and improved admin/client interfaces. They confirmed that booking selection should show travel packages with destinations and prices. The dedicated admin@systema.com account is exempt from email verification only while its stored role is Administrator. Existing financial rules, client privacy, and administrator approval of requests remain in place. Predictions must distinguish estimates from recorded sales.
 
 ## Evidence on Hand
 
@@ -24,4 +24,4 @@ README.md describes implemented workflows. src/styles.css and src/workspace.css 
 
 ## Open Decisions
 
-An outbound email provider has not yet been selected. Local development previews messages in private files. A Resend adapter is available but has not been configured for real delivery.
+Gmail SMTP is configured for production using server-only credentials. Actual inbox delivery still needs a client account check. Local development previews messages in private files. Resend remains an optional adapter for a verified sending domain.

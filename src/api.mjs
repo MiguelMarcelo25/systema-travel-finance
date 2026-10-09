@@ -1,4 +1,5 @@
 import { accountSecurity } from './account-security.mjs';
+import { isVerificationExempt, needsEmailVerification } from './account-policy.mjs';
 import { packageForecast } from './package-forecast.mjs';
 import { remoteMail } from './mail.mjs';
 import { forecastRecords } from './forecast.mjs';
@@ -94,7 +95,7 @@ export async function handleApi(request,env){
    const id=uid('USR');const bootstrap=path==='/api/login';const name=bootstrap?'Administrator':str(body.name,'Name');const mail=email(body.email);const hash=await passwordHash(body.password);
    await DB.batch([q('INSERT INTO users(id,name,email,role,password,created) SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM users)',id,name,mail,'Administrator',hash,now()),q('INSERT INTO settings(key,value) VALUES(?,?)','agency',bootstrap?'Systema Travel':str(body.agency,'Agency name')),q('INSERT INTO settings(key,value) VALUES(?,?)','demo',!bootstrap&&body.demo?'true':'false')]);
    if(!bootstrap&&body.demo)await seed(DB,id);
-   if(env.MAIL&&env.APP_URL)try{await security.issue({id,email:mail},'verify')}catch{}
+   if(!isVerificationExempt({email:mail,role:'Administrator'})&&env.MAIL&&env.APP_URL)try{await security.issue({id,email:mail},'verify')}catch{}
    return login(id);
   }
   if(path==='/api/login'&&method==='POST') {
@@ -108,12 +109,13 @@ export async function handleApi(request,env){
   if(!user)fail('Please sign in to continue.',401);
   if(path==='/api/logout'&&method==='POST'){if(rawCookie)await q('DELETE FROM sessions WHERE token=?',await digest(rawCookie)).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)})}
   if(path==='/api/resend-verification'&&method==='POST') {
+   if(isVerificationExempt(user))return json({ok:true,verificationRequired:false});
    if(user.email_verified_at)return json({ok:true,verified:true});
    await security.limit('verify-user',user.id);
    await security.limit('verify-ip',env.CLIENT_IP||'unknown',20);
    await security.issue(user,'verify');return json({ok:true});
   }
-  if(!user.email_verified_at)fail('Verify your email address to open your workspace.',403);
+  if(needsEmailVerification(user))fail('Verify your email address to open your workspace.',403);
   if(path==='/api/documents'||path.startsWith('/api/documents/'))return await handleDocuments(request,env,user,body);
   const allow=(...allowed)=>{if(!allowed.includes(user.role))fail('Your role does not have permission to perform this action.',403)};
   const audit=(action,id)=>q('INSERT INTO audit(id,user_id,action,entity_id,created) VALUES(?,?,?,?,?)',uid('LOG'),user.id,action,id,now());
