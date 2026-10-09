@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handleApi } from '../src/api.mjs';
+import { handleApi } from './verified-fixture.mjs';
 import { openDatabase } from '../src/database.mjs';
 
 const payload = { name: 'New traveler', email: 'new@example.com', phone: '09170000000', password: 'Registration-test-1234', confirm_password: 'Registration-test-1234' };

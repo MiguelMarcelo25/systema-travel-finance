@@ -1,3 +1,4 @@
+import { remoteMail } from '../src/mail.mjs';
 import { handleApi } from '../src/api.mjs';
 import { openPostgres } from '../src/postgres.mjs';
 import { supabaseDocumentStorage } from '../src/document-storage.mjs';
@@ -18,7 +19,7 @@ export default {
       request = new Request(url, { method: request.method, headers: request.headers,
         ...(!['GET', 'HEAD'].includes(request.method) ? { body: request.body, duplex: 'half' } : {}) });
     }
-    return handleApi(request, { DB: database, STORAGE: storage, ADMIN_EMAIL: process.env.SYSTEMA_ADMIN_EMAIL,
+    return handleApi(request, { DB: database, STORAGE: storage, MAIL: remoteMail(process.env), APP_URL: process.env.APP_URL, ADMIN_EMAIL: process.env.SYSTEMA_ADMIN_EMAIL,
       CLIENT_IP: request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown' });
   }
 };

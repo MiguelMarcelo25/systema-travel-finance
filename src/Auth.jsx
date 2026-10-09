@@ -32,6 +32,7 @@ export default function Auth({ session, refresh, register = false }) {
           <Field label="Email" name="email" type="email" required maxLength={254} autoComplete="username" placeholder="you@example.com"/>
           {register && <Field label="Phone number" name="phone" type="tel" required maxLength={40} autoComplete="tel" placeholder="Your phone number"/>}
           <Field label="Password" name="password" type="password" required minLength={register || !session.initialized ? 10 : undefined} maxLength={128} autoComplete={register || !session.initialized ? 'new-password' : 'current-password'} placeholder={register ? 'Create a password' : 'Enter your password'} hint={register ? 'Use at least 10 characters.' : undefined}/>
+          {!register && <Link className="auth-forgot" to="/forgot-password">Forgot password?</Link>}
           {register && <Field label="Confirm password" name="confirm_password" type="password" required minLength={10} maxLength={128} autoComplete="new-password" placeholder="Re-enter your password"/>}
           {error && <p role="alert" className="auth-error">{error}</p>}
           <Button type="submit" disabled={busy || (register && !session.initialized)} className="auth-submit">{busy ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true"/> : null}{busy ? register ? 'Creating account…' : 'Signing in…' : register ? 'Create account' : 'Sign in'}{!busy && <ArrowRight size={18} aria-hidden="true"/>}</Button>

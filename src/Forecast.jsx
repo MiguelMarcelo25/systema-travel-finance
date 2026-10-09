@@ -1,8 +1,19 @@
 import { useEffect, useState } from 'react';
+import PackageForecast from './PackageForecast';
 import { Download, Info, TrendingUp, CalendarDays, Activity, ArrowUpRight } from 'lucide-react';
 import { Button, Card, DataTable, Field, LineChart, Loading, Stat, Empty } from './components';
 import { api, compact, money, monthName, downloadCsv, sum } from './utils';
 export default function Forecast({ data }) {
+  const [tab, setTab] = useState('packages');
+  function moveTab(event) {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 'packages' : event.key === 'End' ? 'agency' : tab === 'packages' ? 'agency' : 'packages';
+    setTab(next); event.currentTarget.querySelector(`#${next}-tab`).focus();
+  }
+  return <><div className="forecast-tabs" role="tablist" aria-label="Prediction type" onKeyDown={moveTab}><button id="packages-tab" role="tab" tabIndex={tab === 'packages' ? 0 : -1} aria-selected={tab === 'packages'} aria-controls="forecast-panel" onClick={()=>setTab('packages')}>Package best sellers</button><button id="agency-tab" role="tab" tabIndex={tab === 'agency' ? 0 : -1} aria-selected={tab === 'agency'} aria-controls="forecast-panel" onClick={()=>setTab('agency')}>Agency forecast</button></div><div id="forecast-panel" role="tabpanel" aria-labelledby={tab + '-tab'}>{tab === 'packages' ? <PackageForecast/> : <AgencyForecast data={data}/>}</div></>;
+}
+function AgencyForecast({ data }) {
   const [metric, setMetric] = useState('sales'), [horizon, setHorizon] = useState('3'), [category, setCategory] = useState('all');
   const [result, setResult] = useState(null), [error, setError] = useState(''), [attempt, setAttempt] = useState(0);
   useEffect(() => { const controller = new AbortController(); setResult(null); setError(''); api(`forecast?metric=${metric}&horizon=${horizon}&category=${encodeURIComponent(category)}`, undefined, controller.signal).then(setResult).catch(failure => { if (failure.name !== 'AbortError') setError(failure.message); }); return () => controller.abort(); }, [metric, horizon, category, attempt]);

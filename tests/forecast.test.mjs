@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { forecastRecords } from '../src/forecast.mjs';
-import { handleApi } from '../src/api.mjs';
+import { handleApi } from './verified-fixture.mjs';
 import { openDatabase } from '../src/database.mjs';
 const records = values => values.map((total, index) => ({ date: `2026-${String(index + 1).padStart(2, '0')}-15`, total, status: 'Completed' }));
 test('forecasts exclude partial months, cancelled bookings, and future information', () => {
