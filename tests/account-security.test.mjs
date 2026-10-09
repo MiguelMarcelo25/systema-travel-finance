@@ -12,6 +12,32 @@ function fixture(t) {
   const token=()=>new URLSearchParams(new URL(messages.at(-1).text.match(/http:\/\/\S+/)[0]).hash.slice(1)).get('token');
   return {DB,env,call,messages,token};
 }
+
+test('only the dedicated administrator skips verification, without bypassing authentication or client restrictions', async t => {
+  const {DB,call,messages}=fixture(t);
+  const admin=await call('login',{email:'admin@systema.com',password});
+  assert.equal(admin.status,200);
+  assert.equal(messages.length,0);
+  assert.equal((await call('session',null,admin.cookie)).data.user.email_verified_at,null);
+  assert.equal((await call('data',null,admin.cookie)).status,200);
+  assert.equal((await call('package-forecast',null,admin.cookie)).status,200);
+  assert.equal((await call('data')).status,401);
+  assert.equal((await call('login',{email:'admin@systema.com',password:'wrong-password'})).status,401);
+  assert.deepEqual((await call('resend-verification',{},admin.cookie)).data,{ok:true,verificationRequired:false});
+  assert.equal(messages.length,0);
+
+  // The same email is insufficient: access follows the server's stored role.
+  await DB.prepare("UPDATE users SET role='Client' WHERE email='admin@systema.com'").run();
+  const client=await call('login',{email:'admin@systema.com',password,role:'Administrator',email_verified_at:'forged'});
+  assert.equal(client.status,200);
+  assert.equal((await call('data',null,client.cookie)).status,403);
+  assert.equal((await call('resend-verification',{},client.cookie)).status,200);
+  assert.equal(messages.length,1);
+  await DB.prepare("UPDATE users SET role='Administrator',email='another-admin@example.test'").run();
+  assert.equal((await call('data',null,admin.cookie)).status,403);
+  await DB.prepare("UPDATE users SET email='admin@systema.com',active=0").run();
+  assert.equal((await call('data',null,admin.cookie)).status,401);
+});
 test('administrator and client verification gates cannot be bypassed; tokens are private, purpose-bound and single-use',async t=>{
   const {DB,call,messages,token}=fixture(t);
   const admin=await call('login',{email:'admin@example.test',password});assert.equal(admin.status,200);

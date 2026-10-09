@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { MailCheck, KeyRound, CheckCircle2 } from 'lucide-react';
 import { Button, Field, Logo } from './components';
 import { api } from './utils';
+import { needsEmailVerification } from './account-policy.mjs';
 
 export function AccessLayout({ title, description, children }) {
   return <main className="auth-screen"><aside className="auth-visual" aria-label="Travel inspiration"><picture><source media="(max-width: 767px)" srcSet="/images/systema-coast-mobile.webp"/><img className="auth-photo" src="/images/systema-coast.webp" width="1122" height="1402" alt="A sunlit tropical cove with turquoise water and limestone cliffs"/></picture><div className="auth-visual-copy"><h2>Your next journey starts here.</h2><p>One account for your journeys, documents, and peace of mind.</p></div></aside><section className="auth-form-panel" aria-labelledby="access-title"><div className="auth-form-content"><div className="auth-brand"><Logo/><span>Travel, in balance.</span></div><div className="auth-heading"><h1 id="access-title">{title}</h1><p>{description}</p></div>{children}</div></section></main>;
@@ -26,7 +27,7 @@ export default function AccountAccess({ mode, session, refresh }) {
       else { setDone(true); setMessage(result.message || (reset ? 'Sign in with your new password. All previous sessions have been signed out.' : 'Your email address is confirmed.')); if (verify || reset) await refresh(); }
     } catch (failure) { setError(failure.message); } finally { setBusy(false); }
   }
-  async function check() { setBusy(true); setError(''); try { const current = await api('session'); if (!current.user?.email_verified_at) setError('Your email is not verified yet. Open the link in your email first.'); await refresh(); } catch (failure) { setError(failure.message); } finally { setBusy(false); } }
+  async function check() { setBusy(true); setError(''); try { const current = await api('session'); if (!current.user || needsEmailVerification(current.user)) setError('Your email is not verified yet. Open the link in your email first.'); await refresh(); } catch (failure) { setError(failure.message); } finally { setBusy(false); } }
   async function logout() { setBusy(true); try { await api('logout', {}); await refresh(); } catch (failure) { setError(failure.message); } finally { setBusy(false); } }
   const description = gate ? `Confirm ${session.user.email} to open your ${session.user.role === 'Administrator' ? 'agency' : 'client'} workspace.` : verify ? 'Confirm your address to keep your account secure.' : reset ? 'Use 10–128 characters. Choose a password you haven’t used elsewhere.' : 'We’ll send a reset link to the email connected to your account. This works for administrator and client accounts.';
   return <AccessLayout title={title} description={description}><div className="access-symbol" aria-hidden="true">{done ? <CheckCircle2 size={28}/> : gate || verify ? <MailCheck size={28}/> : <KeyRound size={28}/>}</div>
