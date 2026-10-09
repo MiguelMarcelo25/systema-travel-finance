@@ -1,4 +1,4 @@
-import { remoteMail } from './src/mail.mjs';
+import { nodeMail } from './src/node-mail.mjs';
 import { localMail } from './src/local-mail.mjs';
 import { createServer } from 'node:http';
 import { readFileSync,existsSync } from 'node:fs';
@@ -10,7 +10,7 @@ import { supabaseDocumentStorage } from './src/document-storage.mjs';
 import { localDocumentStorage } from './src/local-document-storage.mjs';
 const STORAGE=process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY?supabaseDocumentStorage(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY):!process.env.DATABASE_URL?localDocumentStorage(process.env.SYSTEMA_DOCUMENTS_DIR):undefined;
 const DB=process.env.DATABASE_URL?openPostgres(process.env.DATABASE_URL,{ca:process.env.DATABASE_CA}):openDatabase(process.env.SYSTEMA_DB||'./data/systema.sqlite');const port=Number(process.env.PORT||4173);
-const mailProvider=remoteMail(process.env),MAIL_PREVIEW=!mailProvider&&!process.env.DATABASE_URL;
+const mailProvider=nodeMail(process.env),MAIL_PREVIEW=!mailProvider&&!process.env.DATABASE_URL;
 const MAIL=mailProvider||(MAIL_PREVIEW?localMail():undefined);
 const APP_URL=process.env.APP_URL||'http://localhost:'+port;
 const vite=process.argv.includes('--dev')?await(await import('vite')).createServer({server:{middlewareMode:true},appType:'spa'}):null;

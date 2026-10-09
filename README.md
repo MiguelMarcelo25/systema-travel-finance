@@ -24,7 +24,11 @@ Both administrator and client accounts must verify their email before entering t
 
 For local SQLite development, emails are saved as private `.txt` previews under `.sites-runtime/mail/`. Open the newest file and use its link; these files are never served by the website or committed. Delete expired preview files when no longer needed. This is a development mailbox, not delivery to a real inbox.
 
-For real email delivery, set server-only `RESEND_API_KEY`, `MAIL_FROM` (a verified sender), and `APP_URL` (the canonical site URL, HTTPS in production). The integration follows the [Resend send-email API](https://resend.com/docs/api-reference/emails/send-email). To load an environment file locally, use `node --env-file=.env.local server.mjs` after building. Keep `DATABASE_URL` empty for SQLite. No real email provider credentials are included. Cloud runtimes require email configuration and the new Supabase migration before releasing these features; they never fall back to local preview files.
+For real email delivery on Node/Vercel, set server-only `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and `APP_URL` (the canonical site URL, HTTPS in production). Enable Google 2-Step Verification, create a [Google App Password](https://support.google.com/accounts/answer/185833), and save it as a Production Secret in Vercel. Never use your normal Google password. Messages are sent from the authenticated Gmail address over TLS; Gmail's sending limits and account security checks still apply.
+
+Alternatively, configure `RESEND_API_KEY` and `MAIL_FROM` using a verified Resend sending domain. Gmail takes precedence when both Gmail variables are present. Resend's default sender supports testing to the Resend account owner's email only, so it is unsuitable for client account verification. The Worker build supports Resend only.
+
+To load an environment file locally, use `node --env-file=.env.local server.mjs` after building. Keep `DATABASE_URL` empty for SQLite. No real email provider credentials are included. Cloud runtimes require email configuration and the new Supabase migration before releasing these features; they never fall back to local preview files.
 
 ### Package catalog and predictions
 
