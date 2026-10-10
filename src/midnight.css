@@ -1,0 +1,139 @@
+/* Midnight Explorer: a shared, intentional dark theme for both workspaces.
+   Keep these tokens on body so dialogs and portaled controls inherit them. */
+body[data-workspace] {
+  --midnight-base: #0d1b2a;
+  --midnight-rail: #091522;
+  --midnight-panel: #1b3144;
+  --midnight-raised: #223c50;
+  --midnight-line: #365064;
+  --midnight-muted: #afc3d3;
+  --midnight-aqua: #66ddd5;
+  --midnight-aqua-soft: #173e48;
+  --midnight-orange: #b94f17;
+  --color-paper: var(--midnight-base);
+  --color-ink: #eef4f5;
+  --color-navy: #eef4f5;
+  --color-brand: var(--midnight-aqua);
+  --color-brand-light: var(--midnight-aqua-soft);
+  --control-focus: var(--midnight-aqua);
+  --control-border: #476175;
+  --control-surface: #13283a;
+  --chart-recorded: #66ddd5;
+  --chart-forecast: #f6ac78;
+  color-scheme: dark;
+  background: var(--midnight-base);
+  color: var(--color-ink);
+  scrollbar-color: var(--midnight-line) var(--midnight-base);
+}
+
+/* Navigation stays darker than the content, with one unmistakable active item. */
+body[data-workspace] .workspace-header,
+body[data-workspace] .sidebar { background: var(--midnight-rail); border-color: #263c4f; }
+body[data-workspace] .sidebar-brand { --color-brand: var(--midnight-orange); }
+body[data-workspace] .sidebar-link { color: #b9cbd9; }
+body[data-workspace] .sidebar-link:hover { background: #162d3f; color: #eef4f5; }
+body[data-workspace] .sidebar-link.is-active { background: var(--midnight-aqua-soft); color: #8debe3; box-shadow: inset 3px 0 var(--midnight-aqua); }
+body[data-workspace] :is(.sidebar-toggle, .workspace-menu-button) { background: var(--midnight-panel); border-color: var(--midnight-line); color: #d9e6ed; }
+body[data-workspace] :is(.sidebar-toggle:hover, .workspace-menu-button:hover, .account-trigger:hover, .account-trigger[data-state=open]) { background: var(--midnight-raised); color: var(--color-ink); }
+body[data-workspace] :is(.sidebar-count, .account-avatar) { background: var(--midnight-aqua-soft); color: var(--midnight-aqua); }
+body[data-workspace] .workspace-date { border-color: var(--midnight-line); }
+body[data-workspace] .workspace-skip-link { color: var(--midnight-rail); }
+
+/* Surface hierarchy, including dialogs and floating menus. */
+body[data-workspace] :is(.ui-card, .package-card, .traveler-request, .catalog-filters, .ui-period-filters, .ui-modal, .select-menu, .calendar-menu, .account-popover) { background: var(--midnight-panel); border-color: var(--midnight-line); color: var(--color-ink); }
+body[data-workspace] :is(.ui-modal > div:first-child, .ui-table thead tr) { background: #152a3c; border-color: var(--midnight-line); }
+body[data-workspace] .ui-modal { box-shadow: 0 28px 90px rgb(0 8 18 / .6); }
+body[data-workspace] .ui-modal::backdrop { background: rgb(0 8 18 / .7); }
+body[data-workspace] :is(.select-menu, .calendar-menu, .account-popover) { box-shadow: 0 16px 40px rgb(0 8 18 / .5); }
+body[data-workspace] :is(.ui-table td, .ui-records-toolbar, .ui-pagination, .ui-chart-details, .upcoming-trip, .traveler-status, .traveler-status > a + a, .traveler-request-facts, .package-card-bottom, .request-review-toolbar, .document-files > li, .document-selected, .package-rank-list li, .package-methods, .forecast-tabs, .account-popover-identity, .calendar-footer) { border-color: var(--midnight-line); }
+body[data-workspace] .ui-table tbody tr:hover { background: #243e52; }
+body[data-workspace] .ui-table th { color: #bbcedc; }
+
+/* Supporting copy remains readable on navy, including existing utility markup. */
+body[data-workspace] :is(.workspace-agency, .workspace-date, .workspace-breadcrumb-separator, .sidebar-section-title, .sidebar-mobile-close, .account-details small, .account-trigger > svg, .account-popover-identity span, .ui-page-eyebrow, .ui-page-title p:not(.ui-page-eyebrow), .ui-stat-heading, .ui-stat-note, .ui-section-heading p, .ui-chart-details, .review-summary p, .forecast-summary p, .upcoming-trip small, .upcoming-trip > svg, .overview-quick-actions > span, .setup-step p, .ui-empty p, .ui-table td .text-slate-500, .client-next-step p, .request-review-toolbar > p, .document-client-selector p, .document-requirement-detail, .document-file-meta, .document-upload-form > p, .document-dropzone > span, .document-selected span, .document-remove, .wizard-step-count > span, .wizard-upload-action > p, .wizard-summary-list small, .traveler-status small, .traveler-status > a > svg:last-child, .traveler-request-facts, .traveler-request-response p, .traveler-request-reference, .catalog-results, .catalog-count, .catalog-intro p, .package-forecast-heading p, .package-card-top, .package-card-bottom > div > span, .package-fare-note, .request-package-summary span, .package-rank-number, .package-rank-details p, .package-rank-details small, .package-rank-estimate small, .package-table-name small, .package-note, .package-methods li, .package-methods p, .text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800, .text-slate-900) { color: var(--midnight-muted); }
+body[data-workspace] :is(.ui-text-link, .ui-text-link:hover, .setup-step button, .upcoming-date, .upcoming-trip:hover strong, .traveler-status > a:hover strong, .catalog-results > button, .package-destination, .package-rank-estimate strong, .package-forecast-heading > svg, .wizard-eyebrow, .journey-link) { color: var(--midnight-aqua); }
+body[data-workspace] :is(.ui-stat-icon, .review-summary-icon, .forecast-summary-icon, .upcoming-trip-icon, .ui-empty-icon, .setup-step-number, .document-requirement-number) { background: var(--midnight-aqua-soft); color: var(--midnight-aqua); border-color: #31616b; }
+body[data-workspace] :is(.upcoming-trips .ui-section-heading > svg, .document-file-heading > svg, .document-dropzone > svg, .document-selected > svg, .catalog-intro > svg, .catalog-search > div > svg, .package-category svg, .traveler-request-response > svg, .traveler-status > a > svg:first-child) { color: #7dd6d1; }
+body[data-workspace] :is(.setup-progress, .document-tags span, .request-status-filters span) { background: var(--midnight-raised); color: #c0d1dc; }
+body[data-workspace] :is(.forecast-summary, .request-package-summary, .document-review-message, .document-upload-form > p.document-original-note, .wizard-original-note, .client-journey-banner) { background: #173944; border-color: #31616b; color: #d4eeeb; }
+body[data-workspace] .client-next-step { background: #173944 !important; border-color: #31616b !important; }
+body[data-workspace] :is(.client-next-step-icon, .client-journey-banner h2) { color: #d4eeeb; }
+body[data-workspace] .client-journey-banner p { color: var(--midnight-muted); }
+body[data-workspace] :is(.document-files > li, .document-dropzone) { background: #142a3c; }
+body[data-workspace] .document-dropzone { border-color: #567488; }
+body[data-workspace] :is(.document-dropzone.is-dragging, .document-dropzone:focus-within) { background: var(--midnight-aqua-soft); border-color: var(--midnight-aqua); }
+body[data-workspace] :is(.wizard-step-count, .wizard-summary-totals strong, .traveler-status strong) { color: var(--color-ink); }
+body[data-workspace] :is(.wizard-progress-track, .package-rank-track) { background: #324f61; }
+body[data-workspace] :is(.wizard-progress-track > span, .package-rank-track span) { background: var(--midnight-aqua); }
+
+/* Orange is reserved for primary actions; aqua identifies navigation and data. */
+body[data-workspace] :is(.ui-button-primary, .traveler-primary-link) { background: var(--midnight-orange); border: 1px solid #dc7540; color: #fff; box-shadow: 0 3px 12px rgb(0 0 0 / .12); }
+body[data-workspace] :is(.ui-button-primary:hover:not(:disabled), .traveler-primary-link:hover) { background: #9f4010; border-color: #f09965; color: #fff; }
+body[data-workspace] :is(.ui-button-secondary, .signout-cancel) { background: var(--midnight-raised); color: #e1edf3; border-color: #537084; }
+body[data-workspace] :is(.ui-button-secondary:hover:not(:disabled), .signout-cancel:hover) { background: #2d4c60; color: #fff; border-color: #78bdbd; }
+body[data-workspace] .ui-stat-primary { background: #17404a; border-color: #337580; color: #f1f9fa; }
+body[data-workspace] .ui-stat-primary :is(.ui-stat-heading, .ui-stat-note) { color: #bee3e2; }
+body[data-workspace] .ui-stat-primary .ui-stat-icon { background: #235460; color: #8ce8df; }
+body[data-workspace] .ui-stat-value { letter-spacing: -.025em; }
+body[data-workspace] .ui-chart svg text { fill: var(--midnight-muted); }
+body[data-workspace] .ui-chart svg line { stroke: var(--midnight-line); }
+body[data-workspace] .agency-priorities { background: #142e3d; border-color: #315568; }
+body[data-workspace] .agency-priorities :is(h2, a) { color: #d2e1eb; }
+body[data-workspace] .agency-priorities a strong,
+body[data-workspace] .agency-priorities > div > svg { color: var(--midnight-aqua); }
+body[data-workspace] .traveler-status { padding: 4px 24px; background: var(--midnight-panel); border: 1px solid var(--midnight-line); border-radius: 14px; }
+body[data-workspace] .traveler-status > a { padding: 18px 0; }
+body[data-workspace] .traveler-request-top p { color: var(--midnight-aqua); }
+body[data-workspace] .traveler-journey { border: 1px solid #36566a; }
+body[data-workspace] .traveler-journey::after { background: linear-gradient(90deg, rgb(9 21 34 / .95), rgb(9 21 34 / .73) 44%, rgb(9 21 34 / .15)); }
+
+/* Controls, selection states, and keyboard focus. */
+body[data-workspace] :is(input:not([type=checkbox]), textarea, select, .custom-select) { color: var(--color-ink); background: var(--control-surface); border-color: var(--control-border); }
+body[data-workspace] :is(input:not([type=checkbox]):focus, textarea:focus, .custom-select:focus-visible, .custom-select[data-state=open]) { background: #183448; border-color: var(--midnight-aqua); box-shadow: 0 0 0 3px rgb(102 221 213 / .18); }
+body[data-workspace] :is(input::placeholder, textarea::placeholder) { color: #9cb4c5; }
+body[data-workspace] :is(.control-action, .number-actions button, .custom-select > span:last-child, .select-scroll) { color: var(--midnight-muted); }
+body[data-workspace] :is(.control-action:hover, .number-actions button:hover, .select-option[data-highlighted], .calendar-footer button:hover, .request-status-filters button:hover) { color: #a2f0e9; background: var(--midnight-aqua-soft); }
+body[data-workspace] :is(.select-option[data-state=checked], .calendar-footer button) { color: var(--midnight-aqua); }
+body[data-workspace] :is(input:disabled, textarea:disabled, .custom-select:disabled) { background: #213343; color: #9bb0c0; }
+body[data-workspace] input[type=checkbox] { background-color: var(--control-surface); }
+body[data-workspace] input[type=checkbox]:checked { background-color: #247b80; border-color: var(--midnight-aqua); }
+body[data-workspace] .calendar-menu .rdp-root { --rdp-accent-color: #66ddd5; --rdp-accent-background-color: #173e48; }
+body[data-workspace] .calendar-menu :is(.rdp-button_previous, .rdp-button_next) { background: var(--midnight-raised); }
+body[data-workspace] .calendar-menu .rdp-day_button:hover { background: var(--midnight-aqua-soft); color: #a2f0e9; }
+body[data-workspace] .calendar-menu .rdp-selected .rdp-day_button,
+body[data-workspace] .calendar-menu .rdp-selected .rdp-day_button:hover { background: var(--midnight-aqua); color: var(--midnight-rail); }
+body[data-workspace] .request-status-filters button { color: var(--midnight-muted); }
+body[data-workspace] .request-status-filters button[aria-pressed=true] { background: var(--midnight-aqua-soft); border-color: #40727c; color: var(--midnight-aqua); }
+body[data-workspace] .request-status-filters button[aria-pressed=true] span { background: #25545c; color: #a2f0e9; }
+body[data-workspace] .forecast-tabs button { color: var(--midnight-muted); }
+body[data-workspace] .forecast-tabs button[aria-selected=true] { color: var(--midnight-aqua); border-color: var(--midnight-aqua); }
+
+/* Existing utility-based panels and semantic states share the same palette. */
+body[data-workspace] :where(.bg-white, .bg-slate-50, .bg-slate-100) { background-color: var(--midnight-panel); }
+body[data-workspace] :where(.border-slate-100, .border-slate-200, .border-slate-300) { border-color: var(--midnight-line); }
+body[data-workspace] :where(.hover\:bg-slate-50:hover, .hover\:bg-slate-100:hover) { background-color: var(--midnight-raised); }
+body[data-workspace] :is(.bg-teal-50, .bg-emerald-50, .package-availability, .access-success, .document-success, .setup-step.is-complete .setup-step-number) { background: #183f3d; color: #98e3c7; border-color: #34675a; }
+body[data-workspace] :is(.bg-blue-50) { background: #203e5b; color: #a8d5ff; }
+body[data-workspace] :is(.bg-amber-50, .preview-records-notice) { background: #3b3325; color: #f6d393; border-color: #6b5839; }
+body[data-workspace] :is(.bg-rose-50, .document-review-message.needs-changes, .document-error, .document-upload-form > p.document-error, .signout-icon) { background: #432d3b; color: #ffb5c3; border-color: #744354; }
+body[data-workspace] :is(.text-rose-800, .text-rose-700, .account-signout, .document-remove:hover) { color: #ffb5c3; }
+body[data-workspace] :is(.account-signout:hover, .document-remove:hover) { background: #432d3b; }
+body[data-workspace] :is(.text-teal-800, .text-emerald-700) { color: #98e3c7; }
+body[data-workspace] :is(.text-amber-800, .text-amber-900) { color: #f6d393; }
+body[data-workspace] .text-blue-800 { color: #a8d5ff; }
+body[data-workspace] .package-inactive .package-availability { background: var(--midnight-raised); color: var(--midnight-muted); }
+body[data-workspace] :is(.wizard-navigation > span, .wizard-help p, .wizard-folder-status, .wizard-agency-notes summary, .wizard-summary > p, .wizard-summary-totals span, .wizard-summary-list p) { color: var(--midnight-muted); }
+body[data-workspace] .wizard-agency-notes strong { color: var(--color-ink); }
+body[data-workspace] .wizard-help > .ui-card > svg { color: var(--midnight-aqua); }
+body[data-workspace] :is(.wizard-folder-status, .wizard-summary-totals, .wizard-summary-list > li) { border-color: var(--midnight-line); }
+body[data-workspace] .wizard-correction { color: #ffb5c3; }
+
+@media (max-width: 760px) {
+  body[data-workspace] .traveler-journey::after { background: linear-gradient(0deg, rgb(9 21 34 / .98), rgb(9 21 34 / .8) 55%, rgb(9 21 34 / .15)); }
+  body[data-workspace] .traveler-status { padding: 0 20px; }
+}
+/* Receipts should remain legible on paper without printing the dark canvas. */
+@media print {
+  body[data-workspace] { --color-ink: #182b3a; --color-navy: #182b3a; --color-paper: #fff; --midnight-base: #fff; --midnight-panel: #fff; --midnight-raised: #f1f5f7; --midnight-muted: #42576a; --midnight-line: #ccd5dd; --midnight-aqua: #17666b; color-scheme: light; }
+  body[data-workspace] :is(.ui-modal, .ui-modal > div:first-child, .ui-card, .ui-table thead tr) { background: #fff; color: #182b3a; box-shadow: none; }
+}
