@@ -12,6 +12,7 @@ import './workspace.css';
 import './experience.css';
 import './motion.css';
 import './travel-video.css';
+import './midnight.css';
 const Workspace = lazy(() => import('./Workspace'));
 function App() {
   const [session, setSession] = useState(null), [error, setError] = useState('');
