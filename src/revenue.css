@@ -1,0 +1,38 @@
+.revenue-workspace { display:grid;gap:24px; }
+.revenue-filters { display:grid;grid-template-columns:1.5fr .8fr 1fr 1fr auto;gap:16px;align-items:end; }
+.revenue-basis,.revenue-note { font-size:12px;line-height:1.8;color:var(--midnight-muted,#62728a); }
+.revenue-basis strong { color:var(--color-ink);font-weight:600; }
+.revenue-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px; }
+.revenue-stats .ui-stat-value { font-size:clamp(20px,2vw,30px);overflow-wrap:anywhere; }
+.revenue-main-grid { display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:24px;align-items:start; }
+.revenue-main-grid>.ui-card { min-width:0; }
+.revenue-notice { display:flex;gap:12px;align-items:start;border:1px solid var(--midnight-line,#dbe4f0);background:var(--midnight-aqua-soft,#edf2ff);border-radius:12px;padding:16px;color:var(--midnight-muted,#526580);font-size:13px;line-height:1.8; }
+.revenue-notice svg { flex-shrink:0;margin-top:3px;color:var(--midnight-aqua,#3459d5); }
+.revenue-notice strong { font-weight:600;color:var(--color-ink); }
+.revenue-values { margin-top:18px; }
+.revenue-values summary { min-height:44px;cursor:pointer;color:var(--midnight-aqua,#3459d5);font-size:13px;font-weight:600;padding:12px 0; }
+.revenue-note { margin-top:16px; }
+.revenue-country-list { display:grid;gap:20px;max-height:540px;overflow:auto;padding-right:4px; }
+.revenue-country-list li>div:first-child { display:flex;align-items:center;justify-content:space-between;gap:12px; }
+.revenue-country-list button { display:inline-flex;align-items:center;gap:10px;min-height:44px;text-align:left;font-size:13px; }
+.revenue-country-list button:hover:not(:disabled) { color:var(--midnight-aqua,#3459d5); }
+.revenue-country-list button:disabled { cursor:default; }
+.revenue-country-list strong { font-weight:600;font-size:13px;overflow-wrap:anywhere; }
+.revenue-rank { display:grid;place-items:center;flex-shrink:0;width:26px;height:26px;border-radius:7px;background:var(--midnight-aqua-soft,#edf2ff);color:var(--midnight-aqua,#3459d5);font-size:11px; }
+.revenue-country-track { height:6px;border-radius:4px;background:var(--midnight-line,#e8edf5);overflow:hidden;margin-top:8px; }
+.revenue-country-track>span { display:block;height:100%;border-radius:inherit;background:var(--midnight-aqua,#3459d5); }
+.revenue-country-list p { color:var(--midnight-muted,#62728a);font-size:12px;margin-top:8px; }
+.revenue-calendar { display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px; }
+.revenue-calendar.is-filtered { grid-template-columns:repeat(auto-fit,minmax(80px,140px)); }
+.revenue-calendar>div { min-width:0;text-align:center;display:grid;gap:8px; }
+.revenue-calendar strong { font-size:13px;font-weight:600; }
+.revenue-calendar-track { height:110px;display:flex;align-items:flex-end;border-radius:8px;background:var(--midnight-base,#f4f7fb);overflow:hidden; }
+.revenue-calendar-track span { width:100%;background:var(--midnight-aqua,#3459d5);border-radius:7px 7px 0 0; }
+.revenue-calendar .is-spring .revenue-calendar-track span { background:#8fbbe8; }
+.revenue-calendar .is-december .revenue-calendar-track span { background:#f3b182; }
+.revenue-calendar>div>span { font-size:12px;font-weight:600;overflow-wrap:anywhere; }
+.revenue-calendar small { font-size:11px;color:var(--midnight-muted,#62728a); }
+.revenue-season-actions { display:flex;gap:12px;flex-wrap:wrap;margin-top:24px; }
+@media(max-width:1399px){.revenue-filters{grid-template-columns:repeat(2,minmax(0,1fr));}.revenue-filters>.ui-button{justify-self:start;}.revenue-stats{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:1099px){.revenue-main-grid{grid-template-columns:minmax(0,1fr);}.revenue-calendar{grid-template-columns:repeat(6,minmax(0,1fr));row-gap:24px;}}
+@media(max-width:639px){.revenue-filters,.revenue-stats{grid-template-columns:minmax(0,1fr);}.revenue-calendar{grid-template-columns:repeat(3,minmax(0,1fr));}.revenue-season-actions>.ui-button{width:100%;}.revenue-main-grid .ui-section-heading{flex-wrap:wrap;align-items:start;}}

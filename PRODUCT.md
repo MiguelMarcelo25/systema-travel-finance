@@ -16,6 +16,8 @@ Manage travel bookings, requests, payments, documents, and agency financial repo
 
 ## Capabilities and Constraints
 
+Revenue analytics reports monthly and country-level booked sales, peak recorded months, and spring/December calendar presets. Country metadata is saved on bookings; ambiguous historical destinations remain unclassified. Booking-date sales and departure-date travel patterns are separate views, and observed totals must not be presented as forecasts or proven recurring seasons.
+
 The user requested password recovery, account email verification, package sales predictions, and improved admin/client interfaces. They confirmed that booking selection should show travel packages with destinations and prices. The dedicated admin@systema.com account is exempt from email verification only while its stored role is Administrator. Existing financial rules, client privacy, and administrator approval of requests remain in place. Predictions must distinguish estimates from recorded sales.
 
 ## Evidence on Hand

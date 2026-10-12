@@ -82,6 +82,8 @@ Local SQLite installations store files in ignored `data/documents` (override wit
 
 ## Financial rules
 
+**Revenue analytics** is available under Insights. It shows monthly booked sales, leading countries, highest-selling months, a seasonal calendar view, and CSV exports. Filter by year, country, booking/departure month, and March–May or December. Add a **Country / area** when creating travel packages or bookings; correct legacy bookings with unspecified countries to include them in rankings. See [revenue analytics definitions and verification](docs/revenue-analytics.md).
+
 Amounts are stored as integer centavos. Total booking value is base fare plus taxes/charges minus discounts. The base fare covers all passengers and is never multiplied a second time. Gross sales exclude cancelled bookings. Collections use payment dates, expenses use expense dates, and sales use booking dates.
 
 **Net cash movement** is actual received payments less recorded paid expenses. **Estimated booking margin** is booked sales less estimated supplier costs. Estimates do not also count as paid expenses. Current receivables filter bookings by the selected booking-date period and use all payments posted to date; the screen explicitly identifies this basis.

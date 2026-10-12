@@ -1,0 +1,43 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {revenueAnalytics} from '../src/revenue-analytics.mjs';
+import {bookingCountry,countryFromDestination} from '../src/countries.mjs';
+import {openDatabase} from '../src/database.mjs';
+import {handleApi} from './verified-fixture.mjs';
+const record=(id,date,travel_date,country,total,status='Confirmed',destination='Tokyo')=>({id,date,travel_date,country,total,status,destination,service:'Agency trip',category:'Tour package'});
+test('revenue reconciles months/countries, excludes cancelled and future sales, and distinguishes departure seasons',()=>{
+  const rows=[record('a','2025-01-05','2025-04-10','JP',10001),record('b','2025-03-05','2025-12-10','JP',20002),record('c','2025-03-06','2025-03-10','KR',9000),record('d','2025-04-05','2025-04-10','',5000,'Confirmed','Unclassified city'),record('e','2025-05-05','2025-05-10','JP',99000,'Cancelled'),record('f','2027-05-05','2027-05-10','JP',100000),record('g','2025-03-07','2025-03-10','',1000,'Confirmed','japan')];
+  const result=revenueAnalytics(rows,{asOf:'2026-10-12'});
+  assert.equal(result.total,45003);assert.equal(result.bookings,5);assert.equal(result.bestCountries[0].name,'Japan');assert.equal(result.bestCountries[0].total,31003);assert.equal(result.bestMonths[0].month,'2025-03');
+  assert.equal(result.monthly.reduce((sum,row)=>sum+row.total,0),result.total);assert.equal(result.countries.reduce((sum,row)=>sum+row.total,0),result.total);assert.equal(result.calendar.reduce((sum,row)=>sum+row.total,0),result.total);assert.equal(result.unclassified.total,5000);
+  const spring=revenueAnalytics(rows,{asOf:'2026-10-12',year:'2025',country:'JP',season:'spring'});assert.equal(spring.total,21002);assert.deepEqual(spring.monthly.map(row=>row.month),['2025-03','2025-04','2025-05']);
+  const travel=revenueAnalytics(rows,{asOf:'2026-10-12',basis:'travel',season:'christmas'});assert.equal(travel.total,20002);assert.equal(travel.bookings,1);
+  assert.equal(countryFromDestination('TOKYO'),'');assert.equal(countryFromDestination('Tokyo, Japan'),'JP');assert.equal(countryFromDestination('Japan, Philippines'),'');assert.equal(bookingCountry({destination:'Japan',country:'KR'}),'KR');
+});
+test('revenue ties, empty periods and partial months remain truthful',()=>{
+  const rows=[record('a','2026-03-01','2026-12-01','JP',10000),record('b','2026-04-01','2027-04-01','KR',10000)];
+  const result=revenueAnalytics(rows,{asOf:'2026-10-12',year:'2026'});assert.equal(result.bestCountries.length,2);assert.equal(result.bestMonths.length,2);assert.equal(result.monthly.length,10);assert.equal(result.monthly.at(-1).partial,true);
+  const travel=revenueAnalytics(rows,{asOf:'2026-10-12',basis:'travel'});assert.equal(travel.monthly[1].scheduled,true);
+  const empty=revenueAnalytics(rows,{asOf:'2026-10-12',country:'PH'});assert.equal(empty.total,0);assert.equal(empty.average,0);assert.deepEqual(empty.bestMonths,[]);assert.deepEqual(empty.bestCountries,[]);
+});
+test('country snapshots persist through acceptance, paid booking edits and administrator-only analytics',async t=>{
+  const DB=openDatabase(':memory:');t.after(()=>DB.close());
+  const call=async(path,body,cookie='')=>{const response=await handleApi(new Request('https://systema.example/api/'+path,{method:body?'POST':'GET',headers:{cookie,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}),{DB,LOCAL:true});return {status:response.status,data:await response.json(),cookie:response.headers.get('set-cookie')?.split(';')[0]};};
+  const admin=await call('setup',{name:'Admin',email:'admin@example.test',password:'Revenue-tests-2026',agency:'Test agency',demo:true});
+  const client=await call('register',{name:'Test traveler',email:'revenue-client@example.test',phone:'1',password:'Revenue-tests-2026',confirm_password:'Revenue-tests-2026'});
+  assert.equal((await call('revenue-analytics')).status,401);assert.equal((await call('revenue-analytics',null,client.cookie)).status,403);
+  const pkgBody={name:'Japan spring',destination:'Tokyo',country:'JP',category:'Tour package',price:'1000.25'};
+  assert.equal((await call('packages',{...pkgBody,country:'XX'},admin.cookie)).status,400);
+  const pkg=await call('packages',pkgBody,admin.cookie);assert.equal(pkg.status,200);
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Manila'});
+  const request=await call('requests',{package_id:pkg.data.id,travel_date:today,passengers:1,request_id:'revenue-request'},client.cookie);
+  const accepted=await call('requests/decision',{id:request.data.id,decision:'Accepted',base:'1000.25',tax:'0',discount:'0',supplier_cost:'500'},admin.cookie);assert.equal(accepted.status,200);
+  const booking=await DB.prepare('SELECT * FROM bookings WHERE id=?').bind(accepted.data.booking_id).first();assert.equal(booking.country,'JP');
+  await call('packages',{...pkgBody,id:pkg.data.id,country:'KR'},admin.cookie);assert.equal((await DB.prepare('SELECT country FROM bookings WHERE id=?').bind(booking.id).first()).country,'JP');
+  await call('payments',{booking_id:booking.id,amount:'10',date:today,method:'Cash',request_id:'revenue-payment'},admin.cookie);
+  const edit={...booking,country:'PH',base:'1000.25',tax:'0',discount:'0',supplier_cost:'500'};
+  assert.equal((await call('bookings',edit,admin.cookie)).status,200);assert.equal((await DB.prepare('SELECT country FROM bookings WHERE id=?').bind(booking.id).first()).country,'PH');
+  assert.equal((await call('bookings',{...edit,base:'999'},admin.cookie)).status,409);
+  const report=await call('revenue-analytics?country=PH',null,admin.cookie);assert.equal(report.status,200);assert.ok(report.data.total>=100025);
+  for(const query of ['country=XX','year=abc','basis=payments','season=unknown'])assert.equal((await call('revenue-analytics?'+query,null,admin.cookie)).status,400);
+});

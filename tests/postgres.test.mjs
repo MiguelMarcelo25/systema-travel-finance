@@ -20,6 +20,7 @@ test('Postgres supports private clients, approvals, exact payments and transacti
   await pg.exec(readFileSync('supabase/migrations/20261006235813_systema_postgres.sql', 'utf8'));
   await pg.exec(readFileSync('supabase/migrations/20261007050049_visa_documents.sql', 'utf8'));
   await pg.exec(readFileSync('supabase/migrations/20261009000000_account_security.sql', 'utf8'));
+  await pg.exec(readFileSync('supabase/migrations/20261012120817_revenue_countries.sql', 'utf8'));
   const query = async (input, args) => {
     const result = await pg.query(typeof input === 'string' ? input : input.text, args || input.values);
     for (const row of result.rows) for (const field of result.fields) {
@@ -40,7 +41,7 @@ test('Postgres supports private clients, approvals, exact payments and transacti
   assert.equal(admin.status, 200);
   const customer = await call('customers', { name: 'Traveler', email: 'client@example.com', phone: '09170000000' }, admin.cookie);
   assert.equal(customer.status, 200);
-  const service = await call('packages', { name: 'Island escape', destination: 'Palawan', category: 'Tour package', price: '1000.25' }, admin.cookie);
+  const service = await call('packages', { name: 'Island escape', destination: 'Palawan', country: 'PH', category: 'Tour package', price: '1000.25' }, admin.cookie);
   assert.equal(service.status, 200);
   const account = await call('users', { name: 'Traveler', email: 'client@example.com', role: 'Client', customer_id: customer.data.id, password: 'Postgres-test-1234' }, admin.cookie);
   assert.equal(account.status, 200);
@@ -73,6 +74,8 @@ test('Postgres supports private clients, approvals, exact payments and transacti
   const state = (await call('data', null, client.cookie)).data;
   assert.equal(state.bookings[0].total, 101050);
   assert.equal(state.bookings[0].paid, 101050);
+  const revenue = (await call('revenue-analytics?country=PH', null, admin.cookie)).data;
+  assert.equal(revenue.total, 101050); assert.equal(revenue.bestCountries[0].name, 'Philippines');
   assert.equal(state.payments.length, 2);
   assert.equal(state.expenses.length, 0);
   assert.equal(state.users.length, 0);
