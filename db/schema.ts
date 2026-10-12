@@ -1,8 +1,8 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 export const users = sqliteTable('users', {
- id: text('id').primaryKey(), name: text('name').notNull(), email: text('email').notNull().unique(), role: text('role').notNull(), password: text('password').notNull(), active: integer('active').notNull().default(1), created: text('created').notNull(), customer_id: text('customer_id').references(()=>customers.id), email_verified_at: text('email_verified_at')
-}, t=>[uniqueIndex('users_single_administrator').on(t.role).where(sql`${t.role} = 'Administrator'`), uniqueIndex('users_customer_unique').on(t.customer_id)]);
+ id: text('id').primaryKey(), name: text('name').notNull(), email: text('email').notNull().unique(), role: text('role').notNull(), password: text('password').notNull(), active: integer('active').notNull().default(1), created: text('created').notNull(), customer_id: text('customer_id').references(()=>customers.id), email_verified_at: text('email_verified_at'), deleted_at: text('deleted_at')
+}, t=>[uniqueIndex('users_single_administrator').on(t.role).where(sql`${t.role} = 'Administrator'`), uniqueIndex('users_customer_unique').on(t.customer_id), check('users_deleted_client_inactive',sql`${t.deleted_at} IS NULL OR (${t.role} = 'Client' AND ${t.active} = 0)`)]);
 export const sessions = sqliteTable('sessions', { token: text('token').primaryKey(), user_id: text('user_id').notNull().references(()=>users.id), expires: integer('expires').notNull() });
 export const accountTokens = sqliteTable('account_tokens', { token_hash: text('token_hash').primaryKey(), user_id: text('user_id').notNull().references(()=>users.id), purpose: text('purpose').notNull(), email: text('email').notNull(), expires: integer('expires').notNull() }, t=>[index('account_tokens_user_idx').on(t.user_id)]);
 export const customers = sqliteTable('customers', { id: text('id').primaryKey(), name: text('name').notNull(), email: text('email').notNull(), phone: text('phone').notNull(), created: text('created').notNull() }, t=>[uniqueIndex('customers_email_unique').on(t.email)]);

@@ -21,6 +21,7 @@ test('Postgres supports private clients, approvals, exact payments and transacti
   await pg.exec(readFileSync('supabase/migrations/20261007050049_visa_documents.sql', 'utf8'));
   await pg.exec(readFileSync('supabase/migrations/20261009000000_account_security.sql', 'utf8'));
   await pg.exec(readFileSync('supabase/migrations/20261012120817_revenue_countries.sql', 'utf8'));
+  await pg.exec(readFileSync('supabase/migrations/20261012232924_account_deletion.sql', 'utf8'));
   const query = async (input, args) => {
     const result = await pg.query(typeof input === 'string' ? input : input.text, args || input.values);
     for (const row of result.rows) for (const field of result.fields) {
@@ -107,6 +108,17 @@ test('Postgres supports private clients, approvals, exact payments and transacti
   assert.equal((await securityCall('reset-password',{token,password:'New-postgres-test-1234',confirm_password:'New-postgres-test-1234'})).status,200);
   assert.equal((await securityCall('reset-password',{token,password:'New-postgres-test-1234',confirm_password:'New-postgres-test-1234'})).status,400);
   assert.equal((await call('data',null,admin.cookie)).status,401);
+  const newAdmin=await call('login',{email:'admin@example.com',password:'New-postgres-test-1234'});
+  const beforeDeletion=(await call('data',null,newAdmin.cookie)).data;
+  assert.equal((await call('users/delete',{id:beforeDeletion.user.id,confirm_email:beforeDeletion.user.email},newAdmin.cookie)).status,409);
+  assert.equal((await call('users/delete',{id:account.data.id,confirm_email:'client@example.com'},client.cookie)).status,403);
+  assert.equal((await call('users/delete',{id:account.data.id,confirm_email:'client@example.com'},newAdmin.cookie)).status,200);
+  const afterDeletion=(await call('data',null,newAdmin.cookie)).data;
+  for(const key of ['customers','bookings','payments','expenses','requests'])assert.deepEqual(afterDeletion[key],beforeDeletion[key]);
+  assert.ok(!afterDeletion.users.some(row=>row.id===account.data.id));
+  assert.equal((await call('data',null,client.cookie)).status,401);
+  assert.equal((await DB.prepare('SELECT uploaded_by FROM client_documents WHERE id=?').bind(document.id).first()).uploaded_by,account.data.id);
+  await assert.rejects(DB.prepare('UPDATE users SET active=1 WHERE id=?').bind(account.data.id).run(),error=>error.code==='23514');
   await assert.rejects(DB.prepare("INSERT INTO users(id,name,email,role,password,created) VALUES('second','Second','second@example.com','Administrator','hash','now')").run(), error => error.code === '23505');
   await pg.exec('SET ROLE anon;');
   await assert.rejects(pg.query('SELECT * FROM systema.users'), error => error.code === '42501');

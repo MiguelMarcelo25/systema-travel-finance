@@ -132,6 +132,10 @@ body[data-workspace] .wizard-correction { color: #ffb5c3; }
   body[data-workspace] .traveler-journey::after { background: linear-gradient(0deg, rgb(9 21 34 / .98), rgb(9 21 34 / .8) 55%, rgb(9 21 34 / .15)); }
   body[data-workspace] .traveler-status { padding: 0 20px; }
 }
+body[data-workspace] .ui-button.account-delete-button { color: #ffb5c3; border-color: #744354; }
+body[data-workspace] .ui-button.account-delete-button:hover:not(:disabled) { background: #432d3b; color: #ffd4dd; }
+body[data-workspace] .ui-button.account-delete-confirm { background: #a52a45; border-color: #a52a45; color: #fff; }
+body[data-workspace] .ui-button.account-delete-confirm:hover:not(:disabled) { background: #be3654; border-color: #be3654; }
 /* Receipts should remain legible on paper without printing the dark canvas. */
 @media print {
   body[data-workspace] { --color-ink: #182b3a; --color-navy: #182b3a; --color-paper: #fff; --midnight-base: #fff; --midnight-panel: #fff; --midnight-raised: #f1f5f7; --midnight-muted: #42576a; --midnight-line: #ccd5dd; --midnight-aqua: #17666b; color-scheme: light; }

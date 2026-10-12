@@ -16,6 +16,10 @@ test('existing-account migration retains one administrator and all booking recor
   assert.equal(sqlite.prepare("SELECT customer_id FROM users WHERE id='C'").get().customer_id, 'CUS');
   assert.equal(sqlite.prepare("SELECT total FROM bookings WHERE id='BOOK'").get().total, 10000);
   assert.equal(sqlite.prepare('SELECT COUNT(*) count FROM sessions').get().count, 0);
+  for (const name of ['0003_powerful_moondragon.sql','0004_wooden_sprite.sql','0005_numerous_sabretooth.sql','0006_conscious_polaris.sql']) sqlite.exec(readFileSync('drizzle/' + name, 'utf8'));
+  assert.equal(sqlite.prepare("SELECT total FROM bookings WHERE id='BOOK'").get().total,10000);
+  assert.equal(sqlite.prepare("SELECT deleted_at FROM users WHERE id='A'").get().deleted_at,null);
+  assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 });
 test('two-field first sign-in creates one administrator; later sign-ins cannot register another', async t => {
   const DB = openDatabase(':memory:'); t.after(() => DB.close()); const call = caller(DB);

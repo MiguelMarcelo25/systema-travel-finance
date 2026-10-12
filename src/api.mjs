@@ -166,7 +166,7 @@ export async function handleApi(request,env){
    }
    allow('Administrator');
    const [customers,packages,bookings,payments,expenses,settings,users,audits]=await Promise.all([
-    all('SELECT * FROM customers ORDER BY name'),all('SELECT * FROM packages ORDER BY name'),all('SELECT b.*,c.name customer_name,c.email customer_email,COALESCE((SELECT SUM(amount) FROM payments p WHERE p.booking_id=b.id),0) paid FROM bookings b JOIN customers c ON b.customer_id=c.id ORDER BY b.date DESC,b.rowid DESC'),all('SELECT p.*,b.service,c.name customer_name FROM payments p JOIN bookings b ON p.booking_id=b.id JOIN customers c ON b.customer_id=c.id ORDER BY p.date DESC,p.rowid DESC'),all('SELECT * FROM expenses ORDER BY date DESC,rowid DESC'),all('SELECT * FROM settings'),user.role==='Administrator'?all('SELECT id,name,email,role,active,created,customer_id,email_verified_at FROM users ORDER BY name'):[],user.role==='Administrator'?all('SELECT a.*,u.name user_name FROM audit a JOIN users u ON a.user_id=u.id ORDER BY a.rowid DESC LIMIT 30'):[]
+    all('SELECT * FROM customers ORDER BY name'),all('SELECT * FROM packages ORDER BY name'),all('SELECT b.*,c.name customer_name,c.email customer_email,COALESCE((SELECT SUM(amount) FROM payments p WHERE p.booking_id=b.id),0) paid FROM bookings b JOIN customers c ON b.customer_id=c.id ORDER BY b.date DESC,b.rowid DESC'),all('SELECT p.*,b.service,c.name customer_name FROM payments p JOIN bookings b ON p.booking_id=b.id JOIN customers c ON b.customer_id=c.id ORDER BY p.date DESC,p.rowid DESC'),all('SELECT * FROM expenses ORDER BY date DESC,rowid DESC'),all('SELECT * FROM settings'),user.role==='Administrator'?all('SELECT id,name,email,role,active,created,customer_id,email_verified_at FROM users WHERE deleted_at IS NULL ORDER BY name'):[],user.role==='Administrator'?all('SELECT a.*,u.name user_name FROM audit a JOIN users u ON a.user_id=u.id ORDER BY a.rowid DESC LIMIT 30'):[]
    ]);const requests=await all('SELECT r.*,c.name customer_name,p.name service,p.destination,p.price FROM booking_requests r JOIN customers c ON c.id=r.customer_id JOIN packages p ON p.id=r.package_id ORDER BY r.requested_at DESC');return json({user,customers,packages,bookings,payments,expenses,requests,settings:Object.fromEntries(settings.map(s=>[s.key,s.value])),users,audits,categories,roles});
   }
   if(path==='/api/customers'&&method==='POST'){
@@ -207,14 +207,32 @@ export async function handleApi(request,env){
    if(amount<=0)fail('Expense must be greater than zero.');if(expenseDate>day())fail('Expense date cannot be in the future.');if(bookingId&&!await one('SELECT id FROM bookings WHERE id=?',bookingId))fail('Booking not found.');if(category==='Supplier payment'&&!bookingId)fail('Link supplier payments to a booking.');
    await DB.batch([q('INSERT INTO expenses(id,description,category,amount,date,payee,booking_id,created_by,request_id) VALUES(?,?,?,?,?,?,?,?,?)',id,description,category,amount,expenseDate,payee,bookingId,user.id,requestId),audit('Recorded expense',id)]);return json({id});
   }
+  if(path==='/api/users/delete'&&method==='POST'){
+   allow('Administrator');const id=str(body.id,'Account'),mail=email(body.confirm_email);
+   const existing=await one('SELECT id,name,email,role FROM users WHERE id=? AND deleted_at IS NULL',id);
+   if(!existing)fail('Account not found or already deleted.',404);
+   if(existing.role!=='Client'||id===user.id)fail('The administrator account cannot be deleted.',409);
+   if(existing.email!==mail)fail('The account email changed. Refresh the accounts page and confirm again.',409);
+   // Retain the historical identity for audit/document foreign keys, but erase
+   // credentials and unlink the login from its customer without deleting records.
+   const deletedAt=now(),tombstone='deleted:'+crypto.randomUUID();
+   const result=await DB.batch([
+    q('UPDATE users SET active=0,deleted_at=?,password=?,email=?,customer_id=NULL,email_verified_at=NULL WHERE id=? AND email=? AND role=\'Client\' AND deleted_at IS NULL',deletedAt,tombstone,'deleted-'+id+'@accounts.systema.invalid',id,mail),
+    q('INSERT INTO audit(id,user_id,action,entity_id,created) SELECT ?,?,?,?,? WHERE changes()>0',uid('LOG'),user.id,'Deleted client account: '+existing.name+' ('+mail+')',id,deletedAt),
+    q('DELETE FROM sessions WHERE user_id=? AND EXISTS(SELECT 1 FROM users WHERE id=? AND deleted_at IS NOT NULL)',id,id),
+    q('DELETE FROM account_tokens WHERE user_id=? AND EXISTS(SELECT 1 FROM users WHERE id=? AND deleted_at IS NOT NULL)',id,id)
+   ]);
+   if(!result[0].meta.changes)fail('The account changed or was already deleted. Refresh the accounts page.',409);
+   return json({id,deleted:true});
+  }
   if(path==='/api/users'&&method==='POST'){
    allow('Administrator');const id=body.id||uid('USR');const name=str(body.name,'Name'),mail=email(body.email),role=choice(body.role,roles,'role');const active=body.active===false?0:1;
-   const existing=body.id?await one('SELECT * FROM users WHERE id=?',id):null;if(body.id&&!existing)fail('User not found.',404);
+   const existing=body.id?await one('SELECT * FROM users WHERE id=? AND deleted_at IS NULL',id):null;if(body.id&&!existing)fail('User not found.',404);
    if(role==='Administrator'&&existing?.role!=='Administrator')fail('Only one administrator account is allowed.',409);
    if(existing?.role==='Administrator'&&(role!=='Administrator'||!active))fail('The sole administrator must remain active.',409);
    const customerId=role==='Client'?(body.customer_id||existing?.customer_id):null;
    if(role==='Client'&&(!customerId||!await one('SELECT id FROM customers WHERE id=?',customerId)))fail('Link this client account to an existing customer.');
-   if(existing){const hash=body.password?await passwordHash(body.password):existing.password;await DB.batch([q('UPDATE users SET name=?,email=?,role=?,active=?,password=?,customer_id=?,email_verified_at=? WHERE id=?',name,mail,role,active,hash,customerId,existing.email===mail?existing.email_verified_at:null,id),q('DELETE FROM sessions WHERE user_id=?',id),q('DELETE FROM account_tokens WHERE user_id=?',id),audit('Updated account',id)]);}
+   if(existing){const hash=body.password?await passwordHash(body.password):existing.password;const result=await DB.batch([q('UPDATE users SET name=?,email=?,role=?,active=?,password=?,customer_id=?,email_verified_at=? WHERE id=? AND deleted_at IS NULL',name,mail,role,active,hash,customerId,existing.email===mail?existing.email_verified_at:null,id),q('INSERT INTO audit(id,user_id,action,entity_id,created) SELECT ?,?,?,?,? WHERE changes()>0',uid('LOG'),user.id,'Updated account',id,now()),q('DELETE FROM sessions WHERE user_id=?',id),q('DELETE FROM account_tokens WHERE user_id=?',id)]);if(!result[0].meta.changes)fail('The account was deleted. Refresh the accounts page.',409);}
    else {const hash=await passwordHash(body.password);await DB.batch([q('INSERT INTO users(id,name,email,role,password,active,created,customer_id) VALUES(?,?,?,?,?,?,?,?)',id,name,mail,'Client',hash,active,now(),customerId),audit('Created client account',id)]);}
    return json({id});
   }

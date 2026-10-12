@@ -43,6 +43,13 @@
       "when": 1791806952312,
       "tag": "0005_numerous_sabretooth",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791847751151,
+      "tag": "0006_conscious_polaris",
+      "breakpoints": true
     }
   ]
 }
